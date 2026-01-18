@@ -112,6 +112,8 @@
 
         const CalorieTracker = ({ user, target = 2000 }) => {
             const [calories, setCalories] = React.useState(0);
+            const [steps, setSteps] = React.useState(0);
+            const [burned, setBurned] = React.useState(0);
             const today = new Date().toISOString().split('T')[0];
 
             React.useEffect(() => {
@@ -119,18 +121,23 @@
                 const docRef = db.collection('users').doc(user.uid).collection('daily').doc(today);
                 const unsub = docRef.onSnapshot(doc => {
                     if (doc.exists) {
-                        setCalories(doc.data().calories || 0);
+                        const data = doc.data();
+                        setCalories(data.calories || 0);
+                        setSteps(data.steps || 0);
+                        setBurned(data.burned || 0);
                     } else {
                         setCalories(0);
+                        setSteps(0);
+                        setBurned(0);
                     }
                 });
                 return () => unsub();
             }, [user]);
 
-            const adjustCalories = (amount) => {
+            const updateDailyStat = (field, amount) => {
                 const docRef = db.collection('users').doc(user.uid).collection('daily').doc(today);
                 docRef.set({
-                    calories: firebase.firestore.FieldValue.increment(amount),
+                    [field]: firebase.firestore.FieldValue.increment(amount),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             };
@@ -139,29 +146,57 @@
 
             return (
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-pink-100 mb-6 relative overflow-hidden">
-                    <div className="flex justify-between items-center z-10 relative">
+                    {/* Header Summary */}
+                    <div className="flex justify-between items-center mb-4">
                         <div>
                             <h2 className="text-lg font-bold text-gray-800">Resumen Diario</h2>
-                            <p className="text-sm text-gray-500">Hoy, {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</p>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-3xl font-extrabold text-primary-600">{calories}</span>
-                            <span className="text-xs text-gray-400 block">/ {target} kcal</span>
+                            <p className="text-sm text-gray-500">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</p>
                         </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="mt-4 mb-4">
-                        <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
+                    {/* 1. Intake Progress (Existing) */}
+                    <div className="mb-6">
+                        <div className="flex justify-between text-sm mb-1">
+                            <span className="font-bold text-gray-700">Ingesta</span>
+                            <span className="text-gray-500">{calories} / {target} kcal</span>
+                        </div>
+                        <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden relative">
                             <div className="h-full bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percentage}%` }}></div>
                         </div>
+                        <div className="flex gap-2 justify-end mt-2">
+                            <button onClick={() => updateDailyStat('calories', 100)} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-primary-100 transition-colors">+100</button>
+                            <button onClick={() => updateDailyStat('calories', 250)} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-primary-100 transition-colors">+250</button>
+                            <button onClick={() => updateDailyStat('calories', -100)} className="text-xs text-gray-400 font-bold hover:text-gray-600 px-2">-100</button>
+                        </div>
                     </div>
 
-                    {/* Quick Actions */}
-                    <div className="flex gap-2 justify-end">
-                        <button onClick={() => adjustCalories(100)} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-primary-100 transition-colors">+100</button>
-                        <button onClick={() => adjustCalories(250)} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-primary-100 transition-colors">+250</button>
-                        <button onClick={() => adjustCalories(-100)} className="bg-gray-50 text-gray-500 px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors">-100</button>
+                    {/* 2. Activity Section (New) */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Steps (Blue/Green) */}
+                        <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <i data-lucide="footprints" className="w-5 h-5 text-blue-500"></i>
+                                <span className="text-sm font-bold text-blue-800">Pasos</span>
+                            </div>
+                            <div className="text-2xl font-black text-blue-600 mb-2">{steps}</div>
+                            <div className="flex gap-1">
+                                <button onClick={() => updateDailyStat('steps', 500)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-blue-600 hover:bg-blue-50">+500</button>
+                                <button onClick={() => updateDailyStat('steps', 1000)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-blue-600 hover:bg-blue-50">+1k</button>
+                            </div>
+                        </div>
+
+                        {/* Burned (Red) */}
+                        <div className="bg-red-50/50 p-4 rounded-xl border border-red-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <i data-lucide="flame" className="w-5 h-5 text-red-500"></i>
+                                <span className="text-sm font-bold text-red-800">Quemadas</span>
+                            </div>
+                            <div className="text-2xl font-black text-red-600 mb-2">{burned}</div>
+                            <div className="flex gap-1">
+                                <button onClick={() => updateDailyStat('burned', 50)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-red-600 hover:bg-red-50">+50</button>
+                                <button onClick={() => updateDailyStat('burned', 100)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-red-600 hover:bg-red-50">+100</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
@@ -421,20 +456,23 @@
 
 
         // --- UTILS & HELPERS ---
-        const calculateTDEE = (weight, height, age, gender, activityLevel, goal) => {
+        const calculateTDEE = (weight, height, age, gender, dailyActivity, gymDays, goal) => {
             // Mifflin-St Jeor Equation
             let bmr = (10 * weight) + (6.25 * height) - (5 * age);
             bmr += (gender === 'male') ? 5 : -161;
 
-            const activityMultipliers = {
+            // Base Multiplier (Life Activity)
+            const baseMultipliers = {
                 'sedentary': 1.2,
-                'light': 1.375,
-                'moderate': 1.55,
-                'active': 1.725,
-                'very_active': 1.9
+                'active': 1.5
             };
+            let activityMult = baseMultipliers[dailyActivity] || 1.2;
 
-            let tdee = bmr * (activityMultipliers[activityLevel] || 1.2);
+            // Gym Days Adder
+            const gymFactor = parseFloat(gymDays) * 0.05;
+            activityMult += gymFactor;
+
+            let tdee = bmr * activityMult;
 
             // Goal Adjustment
             if (goal === 'cut') tdee -= 500;
@@ -445,27 +483,44 @@
 
         const UserProfileModal = ({ user, onClose, onSave }) => {
             const [formData, setFormData] = React.useState({
-                weight: '', height: '', age: '', gender: 'male', activity: 'moderate', goal: 'maintain'
+                weight: '', height: '', birthDate: '', gender: 'male',
+                dailyActivity: 'sedentary', gymDays: '3', goal: 'maintain'
             });
             const [loading, setLoading] = React.useState(false);
 
             const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+            const calculateAge = (birthDateString) => {
+                if (!birthDateString) return 25;
+                const today = new Date();
+                const birthDate = new Date(birthDateString);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                return age;
+            };
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setLoading(true);
                 try {
+                    const age = calculateAge(formData.birthDate);
+
                     const tdee = calculateTDEE(
                         parseFloat(formData.weight),
                         parseFloat(formData.height),
-                        parseFloat(formData.age),
+                        age,
                         formData.gender,
-                        formData.activity,
+                        formData.dailyActivity,
+                        parseFloat(formData.gymDays),
                         formData.goal
                     );
 
                     const profileData = {
                         ...formData,
+                        age,
                         tdee,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
@@ -498,8 +553,8 @@
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Edad</label>
-                                    <input name="age" type="number" value={formData.age} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold" required />
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Nacimiento</label>
+                                    <input name="birthDate" type="date" value={formData.birthDate} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-sm" required />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Género</label>
@@ -511,13 +566,24 @@
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Nivel Actividad</label>
-                                <select name="activity" value={formData.activity} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-sm">
-                                    <option value="sedentary">Sedentario (Oficina, poco mov.)</option>
-                                    <option value="light">Ligero (1-3 días ejercicio)</option>
-                                    <option value="moderate">Moderado (3-5 días ejercicio)</option>
-                                    <option value="active">Activo (6-7 días ejercicio)</option>
-                                    <option value="very_active">Muy Activo (Físico + Gym)</option>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Actividad Diaria (Trabajo/Casa)</label>
+                                <select name="dailyActivity" value={formData.dailyActivity} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-sm">
+                                    <option value="sedentary">Sedentario (Oficina, sentado)</option>
+                                    <option value="active">Activo (De pie, movimiento físico)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Días de Gym / Semana</label>
+                                <select name="gymDays" value={formData.gymDays} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold">
+                                    <option value="0">0 días</option>
+                                    <option value="1">1 día</option>
+                                    <option value="2">2 días</option>
+                                    <option value="3">3 días</option>
+                                    <option value="4">4 días</option>
+                                    <option value="5">5 días</option>
+                                    <option value="6">6 días</option>
+                                    <option value="7">7 días</option>
                                 </select>
                             </div>
 
@@ -588,6 +654,113 @@
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            );
+        };
+
+        const CalendarView = ({ user }) => {
+            const [currentDate, setCurrentDate] = React.useState(new Date());
+            const [dailyData, setDailyData] = React.useState({});
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                const fetchHistory = async () => {
+                    const snapshot = await db.collection('users').doc(user.uid).collection('daily').get();
+                    const data = {};
+                    snapshot.forEach(doc => {
+                        data[doc.id] = doc.data();
+                    });
+                    setDailyData(data);
+                    setLoading(false);
+                };
+                fetchHistory();
+            }, [user]);
+
+            const getDaysInMonth = (date) => {
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                const days = new Date(year, month + 1, 0).getDate();
+                const firstDay = new Date(year, month, 1).getDay(); // 0 is Sunday
+
+                // Adjust for Monday start (Spain standard)
+                // Sunday (0) -> 6, Monday (1) -> 0
+                const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+
+                return { days, firstDay: adjustedFirstDay, year, month };
+            };
+
+            const { days, firstDay, year, month } = getDaysInMonth(currentDate);
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+            const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+            const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+            return (
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-lg font-bold text-gray-800 capitalize">{monthNames[month]} {year}</h2>
+                        <div className="flex gap-2">
+                            <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">
+                                <i data-lucide="chevron-left" className="w-5 h-5"></i>
+                            </button>
+                            <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">
+                                <i data-lucide="chevron-right" className="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                        {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
+                            <div key={d} className="text-xs font-bold text-gray-400 py-2">{d}</div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                        {Array.from({ length: firstDay }).map((_, i) => (
+                            <div key={`empty-${i}`} className="aspect-square"></div>
+                        ))}
+
+                        {Array.from({ length: days }).map((_, i) => {
+                            const day = i + 1;
+                            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                            const data = dailyData[dateStr];
+                            const isToday = dateStr === new Date().toISOString().split('T')[0];
+
+                            return (
+                                <div key={day} className={`aspect-square rounded-xl border ${isToday ? 'border-primary-500 bg-primary-50' : 'border-gray-100 bg-gray-50/50'} relative flex flex-col items-center justify-center p-1 transition-all hover:shadow-md cursor-pointer group`}>
+                                    <span className={`text-xs font-bold mb-1 ${isToday ? 'text-primary-600' : 'text-gray-500'}`}>{day}</span>
+
+                                    {data && (
+                                        <div className="flex flex-col gap-0.5 w-full items-center">
+                                            {/* Burned (Red) */}
+                                            {data.burned > 0 && (
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                                                    <span className="text-[9px] font-bold text-red-500 hidden sm:block">{data.burned}</span>
+                                                </div>
+                                            )}
+                                            {/* Steps (Blue) */}
+                                            {data.steps > 0 && (
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                                    <span className="text-[9px] font-bold text-blue-500 hidden sm:block">{(data.steps / 1000).toFixed(1)}k</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="mt-4 flex gap-4 justify-center text-xs text-gray-500">
+                        <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-red-500"></div> Calorías
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-blue-500"></div> Pasos
+                        </div>
                     </div>
                 </div>
             );
@@ -837,12 +1010,9 @@
                                 </div>
                             </React.Fragment>
                         )}
-                        {/* Fake placeholders */}
-                        {activeTab !== 'home' && (
-                            <div className="text-center py-20 text-gray-400 opacity-50">
-                                <i data-lucide="construction" className="w-12 h-12 mx-auto mb-4"></i>
-                                <p>En construcción</p>
-                            </div>
+                        {/* Calendar Tab */}
+                        {activeTab === 'calendar' && (
+                            <CalendarView user={user} />
                         )}
                     </div>
 
