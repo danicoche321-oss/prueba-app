@@ -456,21 +456,53 @@
 
 
         // --- UTILS & HELPERS ---
-        const calculateTDEE = (weight, height, age, gender, dailyActivity, gymDays, goal) => {
+        const calculateTDEE = (weight, height, age, gender, gymDays, walkingDays, walkingSteps, goal) => {
             // Mifflin-St Jeor Equation
             let bmr = (10 * weight) + (6.25 * height) - (5 * age);
             bmr += (gender === 'male') ? 5 : -161;
 
-            // Base Multiplier (Life Activity)
-            const baseMultipliers = {
-                'sedentary': 1.2,
-                'active': 1.5
-            };
-            let activityMult = baseMultipliers[dailyActivity] || 1.2;
+            // Base Multiplier (Sedentary baseline)
+            let activityMult = 1.2;
 
             // Gym Days Adder
+            // +0.05 per intense session (same as before)
             const gymFactor = parseFloat(gymDays) * 0.05;
             activityMult += gymFactor;
+
+            // Walking Adder (NEAT)
+            // Calculate weekly extra steps from walks
+            // If walkingSteps is "low" (~3k) -> +0.02
+            // "medium" (~7k) -> +0.05
+            // "high" (~10k) -> +0.08
+            // Averaged over the week
+
+            const stepFactors = {
+                '3000': 0.025,  // Short walk
+                '7000': 0.06,   // Medium walk
+                '10000': 0.1    // Long walk
+            };
+
+            const dailyWalkingFactor = stepFactors[walkingSteps] || 0;
+            const totalWalkingAdd = dailyWalkingFactor * parseFloat(walkingDays);
+
+            // Normalize to daily average boost
+            // If I walk 7 days of 10k steps -> +0.7 total? No, too high.
+            // Standard Active (1.55) vs Sedentary (1.2) is +0.35 diff
+            // If 10k steps EVERY day, should approximate +0.35
+            // So pure 10k daily steps factor should be ~0.35
+            // My factor 0.1 * 7 = 0.7 -> too high.
+
+            // Refined factors:
+            // 7 days * x = 0.35 (Active) -> x = 0.05 per day of 10k steps
+            // 7 days * x = 0.175 (Light) -> x = 0.025 per day of 5k steps
+
+            const refinedFactors = {
+                '3000': 0.015,
+                '7000': 0.035,
+                '10000': 0.05
+            };
+
+            activityMult += (refinedFactors[walkingSteps] || 0) * parseFloat(walkingDays);
 
             let tdee = bmr * activityMult;
 
@@ -481,10 +513,16 @@
             return Math.round(tdee);
         };
 
-        const UserProfileModal = ({ user, onClose, onSave }) => {
+        const UserProfileModal = ({ user, onClose, onSave, initialData }) => {
             const [formData, setFormData] = React.useState({
-                weight: '', height: '', birthDate: '', gender: 'male',
-                dailyActivity: 'sedentary', gymDays: '3', goal: 'maintain'
+                weight: initialData?.weight || '',
+                height: initialData?.height || '',
+                birthDate: initialData?.birthDate || '',
+                gender: initialData?.gender || 'male',
+                gymDays: initialData?.gymDays || '3',
+                walkingDays: initialData?.walkingDays || '3',
+                walkingSteps: initialData?.walkingSteps || '7000',
+                goal: initialData?.goal || 'maintain'
             });
             const [loading, setLoading] = React.useState(false);
 
@@ -508,13 +546,15 @@
                 try {
                     const age = calculateAge(formData.birthDate);
 
+
                     const tdee = calculateTDEE(
                         parseFloat(formData.weight),
                         parseFloat(formData.height),
                         age,
                         formData.gender,
-                        formData.dailyActivity,
                         parseFloat(formData.gymDays),
+                        parseFloat(formData.walkingDays),
+                        formData.walkingSteps,
                         formData.goal
                     );
 
@@ -566,10 +606,25 @@
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Actividad Diaria (Trabajo/Casa)</label>
-                                <select name="dailyActivity" value={formData.dailyActivity} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-sm">
-                                    <option value="sedentary">Sedentario (Oficina, sentado)</option>
-                                    <option value="active">Activo (De pie, movimiento físico)</option>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Días Caminata / Semana</label>
+                                <select name="walkingDays" value={formData.walkingDays} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-sm">
+                                    <option value="0">0 días</option>
+                                    <option value="1">1 día</option>
+                                    <option value="2">2 días</option>
+                                    <option value="3">3 días</option>
+                                    <option value="4">4 días</option>
+                                    <option value="5">5 días</option>
+                                    <option value="6">6 días</option>
+                                    <option value="7">7 días</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Pasos Aprox. por Caminata</label>
+                                <select name="walkingSteps" value={formData.walkingSteps} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-sm">
+                                    <option value="3000">Pocos (~3k pasos / 30 mins)</option>
+                                    <option value="7000">Medio (~7k pasos / 1h)</option>
+                                    <option value="10000">Muchos (+10k pasos / +1.5h)</option>
                                 </select>
                             </div>
 
@@ -1032,7 +1087,14 @@
                     </div>
 
                     {showAddModal && <AddExerciseModal onClose={() => setShowAddModal(false)} onSave={handleAddExercise} />}
-                    {showProfileModal && <UserProfileModal user={user} onClose={() => setShowProfileModal(false)} onSave={handleSaveProfile} />}
+                    {showProfileModal && (
+                        <UserProfileModal
+                            user={user}
+                            initialData={userProfile}
+                            onClose={() => setShowProfileModal(false)}
+                            onSave={handleSaveProfile}
+                        />
+                    )}
                 </div>
             );
         };
