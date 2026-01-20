@@ -1,11 +1,23 @@
 const CACHE_NAME = 'antigravity-v1';
 const urlsToCache = [
     '/index.html',
+    '/manifest.json',
     '/css/index.css',
     '/js/theme.js',
     '/assets/push_illustration.png',
     '/assets/pull_illustration.png',
     '/assets/legs_illustration.png',
+    '/assets/icon-192.png',
+    'https://cdn.tailwindcss.com',
+    'https://unpkg.com/react@18/umd/react.development.js',
+    'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
+    'https://unpkg.com/@babel/standalone/babel.min.js',
+    'https://unpkg.com/lucide@latest',
+    'https://unpkg.com/lucide-react@latest',
+    'https://cdn.jsdelivr.net/npm/chart.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
     'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js',
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
     'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js'
