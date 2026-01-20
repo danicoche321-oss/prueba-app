@@ -6,6 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Antigravity Fitness</title>
 
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Tu entrenador personal de bolsillo con gamificación y seguimiento avanzado">
+    <meta name="theme-color" content="#E63946">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Antigravity">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -99,6 +108,8 @@
                     animation: {
                         'fade-in': 'fadeIn 0.5s ease-out',
                         'slide-up': 'slideUp 0.5s ease-out',
+                        'bounce-in': 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                        'scale-in': 'scaleIn 0.3s ease-out',
                     },
                     keyframes: {
                         fadeIn: {
@@ -108,6 +119,15 @@
                         slideUp: {
                             '0%': { transform: 'translateY(20px)', opacity: '0' },
                             '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        bounceIn: {
+                            '0%': { transform: 'translate(-50%, -100px) scale(0.3)', opacity: '0' },
+                            '50%': { transform: 'translate(-50%, 10px) scale(1.1)', opacity: '1' },
+                            '100%': { transform: 'translate(-50%, 0) scale(1)', opacity: '1' },
+                        },
+                        scaleIn: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' },
                         }
                     }
                 }
@@ -222,8 +242,8 @@
                             </div>
                             <div className="text-2xl font-black text-blue-600 mb-2">{steps}</div>
                             <div className="flex gap-1">
-                                <button onClick={() => updateDailyStat('steps', 500)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-blue-600 hover:bg-blue-50">+500</button>
-                                <button onClick={() => updateDailyStat('steps', 1000)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-blue-600 hover:bg-blue-50">+1k</button>
+                                <button onClick={() => { updateDailyStat('steps', 500); updateDailyStat('burned', 20); }} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-blue-600 hover:bg-blue-50">+500</button>
+                                <button onClick={() => { updateDailyStat('steps', 1000); updateDailyStat('burned', 40); }} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-blue-600 hover:bg-blue-50">+1k</button>
                             </div>
                         </div>
 
@@ -233,10 +253,9 @@
                                 <i data-lucide="flame" className="w-5 h-5 text-red-500"></i>
                                 <span className="text-sm font-bold text-red-800">Quemadas</span>
                             </div>
-                            <div className="text-2xl font-black text-red-600 mb-2">{burned}</div>
+                            <div className="text-2xl font-black text-red-600 mb-2">{Number(burned).toFixed(2)}</div>
                             <div className="flex gap-1">
-                                <button onClick={() => updateDailyStat('burned', 50)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-red-600 hover:bg-red-50">+50</button>
-                                <button onClick={() => updateDailyStat('burned', 100)} className="flex-1 bg-white shadow-sm py-1 rounded text-xs font-bold text-red-600 hover:bg-red-50">+100</button>
+                                {/* Auto-calculated, no manual input */}
                             </div>
                         </div>
                     </div>
@@ -295,12 +314,354 @@
             );
         };
 
-        const ExerciseCard = ({ exercise, onUpdateSet, onAddSet, onRemoveSet, onOpenCalc, onOpenChart }) => {
+        // --- GAMIFICATION COMPONENTS ---
+
+        const LEVELS = [
+            { name: 'Novato', min: 0, max: 100, icon: '🌱', color: 'from-gray-400 to-gray-500' },
+            { name: 'Aprendiz', min: 101, max: 500, icon: '💪', color: 'from-blue-400 to-blue-600' },
+            { name: 'Experto', min: 501, max: 1500, icon: '🔥', color: 'from-orange-400 to-red-500' },
+            { name: 'Maestro', min: 1501, max: Infinity, icon: '👑', color: 'from-purple-500 to-pink-600' }
+        ];
+
+        const BADGES = [
+            { id: 'first_workout', name: 'Primer Paso', icon: '🎯', description: 'Completa tu primer entrenamiento', criteria: (stats) => stats.totalWorkouts >= 1 },
+            { id: 'streak_7', name: 'Racha de Fuego', icon: '🔥', description: '7 días consecutivos', criteria: (stats) => stats.streakDays >= 7 },
+            { id: 'streak_30', name: 'Imparable', icon: '⚡', description: '30 días consecutivos', criteria: (stats) => stats.streakDays >= 30 },
+            { id: 'pr_5', name: 'Rompe Récords', icon: '💥', description: 'Consigue 5 PRs', criteria: (stats) => stats.totalPRs >= 5 },
+            { id: 'pr_20', name: 'Bestia de Hierro', icon: '🦾', description: 'Consigue 20 PRs', criteria: (stats) => stats.totalPRs >= 20 },
+            { id: 'workouts_50', name: 'Dedicación', icon: '🏋️', description: '50 entrenamientos completados', criteria: (stats) => stats.totalWorkouts >= 50 },
+            { id: 'workouts_100', name: 'Centurión', icon: '🎖️', description: '100 entrenamientos completados', criteria: (stats) => stats.totalWorkouts >= 100 },
+        ];
+
+        const getCurrentLevel = (points) => {
+            return LEVELS.findIndex(l => points >= l.min && points <= l.max);
+        };
+
+        const getLevelProgress = (points) => {
+            const levelIndex = getCurrentLevel(points);
+            const level = LEVELS[levelIndex];
+            if (levelIndex === LEVELS.length - 1) return 100; // Maestro = 100%
+            const progress = ((points - level.min) / (level.max - level.min)) * 100;
+            return Math.min(progress, 100);
+        };
+
+        const LevelBadge = ({ stats, onClick }) => {
+            const levelIndex = getCurrentLevel(stats.points);
+            const level = LEVELS[levelIndex];
+            const progress = getLevelProgress(stats.points);
+            const nextLevel = LEVELS[levelIndex + 1];
+
+            return (
+                <div onClick={onClick} className="cursor-pointer group">
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-gray-50 to-gray-100 px-3 py-1.5 rounded-full border border-gray-200 hover:border-primary-300 transition-all hover:shadow-md">
+                        <span className="text-lg">{level.icon}</span>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-gray-700 leading-none">{level.name}</span>
+                            <span className="text-[9px] text-gray-400 leading-none">{stats.points} pts</span>
+                        </div>
+                    </div>
+                    {nextLevel && (
+                        <div className="mt-1 w-full bg-gray-200 rounded-full h-1 overflow-hidden">
+                            <div
+                                className={`h-full bg-gradient-to-r ${level.color} transition-all duration-500`}
+                                style={{ width: `${progress}%` }}
+                            ></div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const PointsPopup = ({ amount, reason, onComplete }) => {
+            React.useEffect(() => {
+                const timer = setTimeout(onComplete, 2000);
+                return () => clearTimeout(timer);
+            }, []);
+
+            return (
+                <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[200] animate-bounce-in">
+                    <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl shadow-2xl border-2 border-white">
+                        <div className="text-center">
+                            <div className="text-2xl font-black">+{amount} pts</div>
+                            <div className="text-xs font-medium opacity-90">{reason}</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const BadgesModal = ({ stats, onClose }) => {
+            const earnedBadges = BADGES.filter(b => stats.badges.includes(b.id));
+            const lockedBadges = BADGES.filter(b => !stats.badges.includes(b.id));
+
+            return (
+                <div onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+                    <div onClick={e => e.stopPropagation()} className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-2xl animate-scale-in">
+                        <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-6 text-white">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-2xl font-black">Tus Logros</h3>
+                                    <p className="text-sm opacity-90">{earnedBadges.length} de {BADGES.length} desbloqueados</p>
+                                </div>
+                                <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                                    <i data-lucide="x" className="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            {earnedBadges.length > 0 && (
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Desbloqueados</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {earnedBadges.map(badge => (
+                                            <div key={badge.id} className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-400 rounded-2xl p-4 text-center transform hover:scale-105 transition-transform">
+                                                <div className="text-4xl mb-2">{badge.icon}</div>
+                                                <div className="text-sm font-bold text-gray-800">{badge.name}</div>
+                                                <div className="text-xs text-gray-500 mt-1">{badge.description}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {lockedBadges.length > 0 && (
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Bloqueados</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {lockedBadges.map(badge => (
+                                            <div key={badge.id} className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-4 text-center opacity-50">
+                                                <div className="text-4xl mb-2 grayscale">{badge.icon}</div>
+                                                <div className="text-sm font-bold text-gray-600">{badge.name}</div>
+                                                <div className="text-xs text-gray-400 mt-1">{badge.description}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- BODY MAP COMPONENT REMOVED BY USER REQUEST ---
+
+        // --- GOAL PREDICTION COMPONENT ---
+
+        const GoalPrediction = ({ exercise, logs }) => {
+            const userLog = logs[exercise.id];
+            const savedGoal = userLog ? userLog.goalWeight : null;
+            const initialGoal = savedGoal || (exercise.max1RM + 20) || 100;
+
+            const [goalWeight, setGoalWeight] = React.useState(initialGoal);
+            const [showInput, setShowInput] = React.useState(false);
+
+            // Calculate linear regression from historical data
+            const prediction = React.useMemo(() => {
+                const userLog = logs[exercise.id];
+                if (!userLog || !userLog.sets || userLog.sets.length < 3) {
+                    return null; // Not enough data
+                }
+
+                // Extract 1RM history (simplified: use current sets as proxy for history)
+                const dataPoints = userLog.sets
+                    .filter(s => s.weight > 0 && s.reps > 0)
+                    .map((s, index) => ({
+                        x: index, // Time proxy (set index)
+                        y: Math.round(s.weight * (1 + s.reps / 30)) // Epley 1RM
+                    }));
+
+                if (dataPoints.length < 2) return null;
+
+                // Linear regression: y = mx + b
+                const n = dataPoints.length;
+                const sumX = dataPoints.reduce((sum, p) => sum + p.x, 0);
+                const sumY = dataPoints.reduce((sum, p) => sum + p.y, 0);
+                const sumXY = dataPoints.reduce((sum, p) => sum + (p.x * p.y), 0);
+                const sumX2 = dataPoints.reduce((sum, p) => sum + (p.x * p.x), 0);
+
+                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+
+                // Current max 1RM
+                const currentMax = exercise.max1RM || dataPoints[dataPoints.length - 1].y;
+
+                // If slope is negative or zero, can't predict
+                if (slope <= 0) {
+                    return { canPredict: false, reason: 'No hay progreso detectado' };
+                }
+
+                // Calculate weeks to goal (assuming 1 set = 1 week proxy)
+                const setsToGoal = (goalWeight - currentMax) / slope;
+                const weeksToGoal = Math.max(1, Math.ceil(setsToGoal));
+
+                // Calculate R² (coefficient of determination) for confidence
+                const yMean = sumY / n;
+                const ssTotal = dataPoints.reduce((sum, p) => sum + Math.pow(p.y - yMean, 2), 0);
+                const ssResidual = dataPoints.reduce((sum, p) => {
+                    const predicted = slope * p.x + intercept;
+                    return sum + Math.pow(p.y - predicted, 2);
+                }, 0);
+                const rSquared = 1 - (ssResidual / ssTotal);
+
+                // Confidence level
+                let confidence = 'Baja';
+                let confidenceColor = 'text-red-500';
+                if (rSquared > 0.7) {
+                    confidence = 'Alta';
+                    confidenceColor = 'text-green-500';
+                } else if (rSquared > 0.4) {
+                    confidence = 'Media';
+                    confidenceColor = 'text-yellow-500';
+                }
+
+                // Projected date
+                const projectedDate = new Date();
+                projectedDate.setDate(projectedDate.getDate() + (weeksToGoal * 7));
+
+                return {
+                    canPredict: true,
+                    currentMax,
+                    goalWeight,
+                    weeksToGoal,
+                    projectedDate: projectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
+                    confidence,
+                    confidenceColor,
+                    progressPerWeek: slope.toFixed(1)
+                };
+            }, [exercise, logs, goalWeight]);
+
+            if (!prediction) {
+                return (
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-200">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i data-lucide="target" className="w-5 h-5 text-purple-600"></i>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-gray-800 text-sm">Predicción de Meta</h4>
+                                <p className="text-xs text-gray-500">Completa más series para ver tu proyección</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!prediction.canPredict) {
+                return (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 border border-gray-200">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                <i data-lucide="trending-down" className="w-5 h-5 text-gray-500"></i>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-gray-700 text-sm">Sin Progreso</h4>
+                                <p className="text-xs text-gray-500">{prediction.reason}</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-300 shadow-sm">
+                    <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shrink-0">
+                            <i data-lucide="target" className="w-6 h-6 text-white"></i>
+                        </div>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-black text-gray-900 text-sm">Meta: {goalWeight}kg</h4>
+                                <button
+                                    onClick={() => setShowInput(!showInput)}
+                                    className="w-5 h-5 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+                                >
+                                    <i data-lucide="edit-2" className="w-3 h-3 text-purple-600"></i>
+                                </button>
+                            </div>
+
+                            {showInput && (
+                                <div className="mb-3 flex gap-2">
+                                    <input
+                                        type="number"
+                                        value={goalWeight}
+                                        onChange={(e) => setGoalWeight(parseInt(e.target.value) || 100)}
+                                        className="w-20 px-2 py-1 text-sm border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            setShowInput(false);
+                                            // Save to Firestore
+                                            if (logs && logs[exercise.id]) {
+                                                const docRef = db.collection('users').doc(firebase.auth().currentUser.uid).collection('logs').doc(exercise.id);
+                                                docRef.set({ goalWeight: goalWeight }, { merge: true });
+                                            }
+                                        }}
+                                        className="px-3 py-1 bg-purple-500 text-white text-xs font-bold rounded-lg hover:bg-purple-600 transition-colors"
+                                    >
+                                        OK
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <i data-lucide="calendar" className="w-4 h-4 text-purple-600"></i>
+                                    <p className="text-sm font-bold text-gray-800">
+                                        Llegarás en <span className="text-purple-600">~{prediction.weeksToGoal} semanas</span>
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <i data-lucide="flag" className="w-4 h-4 text-pink-600"></i>
+                                    <p className="text-xs text-gray-600">
+                                        Fecha estimada: <span className="font-bold">{prediction.projectedDate}</span>
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <i data-lucide="trending-up" className="w-4 h-4 text-green-600"></i>
+                                    <p className="text-xs text-gray-600">
+                                        Progreso: <span className="font-bold">+{prediction.progressPerWeek}kg/semana</span>
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <i data-lucide="gauge" className="w-4 h-4 text-blue-600"></i>
+                                    <p className="text-xs text-gray-600">
+                                        Confianza: <span className={`font-bold ${prediction.confidenceColor}`}>{prediction.confidence}</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 bg-white/50 rounded-lg p-2">
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className="text-gray-500">Actual: {prediction.currentMax}kg</span>
+                                    <span className="text-purple-600 font-bold">Meta: {goalWeight}kg</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                                        style={{ width: `${Math.min((prediction.currentMax / goalWeight) * 100, 100)}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ExerciseCard = ({ exercise, logs, userProfile, onUpdateSet, onAddSet, onRemoveSet, onOpenCalc, onOpenChart }) => {
             const [isOpen, setIsOpen] = React.useState(false);
 
             // Calculate active volume (just for fun/display)
+            const activeVolume = exercise.sets.reduce((sum, s) => sum + (s.weight * s.reps), 0);
             const totalSets = exercise.sets.length;
             const maxWeight = Math.max(...exercise.sets.map(s => parseInt(s.weight) || 0));
+
+            // Relative Strength Ratio
+            const bwRatio = (userProfile && userProfile.weight && exercise.max1RM)
+                ? (exercise.max1RM / userProfile.weight).toFixed(2)
+                : null;
 
             return (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300">
@@ -311,10 +672,17 @@
                         </div>
                         <div className="flex-1">
                             <h4 className="font-bold text-gray-900 mb-1">{exercise.name}</h4>
-                            <div className="flex gap-2 text-xs">
+                            <div className="flex gap-2 text-xs items-center">
                                 <span className="text-gray-500">{exercise.muscle} • {totalSets} Series</span>
                                 {exercise.max1RM > 0 && (
-                                    <span className="bg-orange-100 text-orange-700 px-1.5 rounded font-bold">1RM: {exercise.max1RM}kg</span>
+                                    <div className="flex gap-1 items-center">
+                                        <span className="bg-orange-100 text-orange-700 px-1.5 rounded font-bold">1RM: {exercise.max1RM}kg</span>
+                                        {bwRatio && (
+                                            <span className="bg-indigo-100 text-indigo-700 px-1.5 rounded font-bold text-[10px]" title="Veces tu peso corporal">
+                                                {bwRatio}x BW
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -334,20 +702,32 @@
                     {/* Sets Table */}
                     <div className={`bg-gray-50/50 border-t border-gray-100 transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                         <div className="p-4">
-                            <div className="grid grid-cols-10 gap-2 mb-2 text-[10px] items-center text-gray-400 font-bold uppercase tracking-wider text-center">
+                            <div className="grid grid-cols-12 gap-2 mb-2 text-[10px] items-center text-gray-400 font-bold uppercase tracking-wider text-center">
                                 <span className="col-span-2">Serie</span>
+                                <span className="col-span-2">Tipo</span>
                                 <span className="col-span-3">Kg</span>
                                 <span className="col-span-3">Reps</span>
-                                <span className="col-span-2">Listo</span>
+                                <span className="col-span-2">✓</span>
                             </div>
 
                             <div className="space-y-2">
                                 {exercise.sets.map((set, index) => (
-                                    <div key={set.id} className={`grid grid-cols-10 gap-2 items-center ${set.isCompleted ? 'opacity-50' : ''}`}>
+                                    <div key={set.id} className={`grid grid-cols-12 gap-2 items-center ${set.isCompleted ? 'opacity-50' : ''}`}>
                                         <div className="col-span-2 flex justify-center">
                                             <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
                                                 {index + 1}
                                             </div>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <select
+                                                value={set.type || 'working'}
+                                                onChange={(e) => onUpdateSet(exercise.id, set.id, 'type', e.target.value)}
+                                                className="w-full text-center bg-white border border-gray-200 rounded-lg py-1 text-[10px] font-bold text-gray-700 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-all"
+                                            >
+                                                <option value="warmup">🔥 Cal</option>
+                                                <option value="approach">⚡ Apr</option>
+                                                <option value="working">💪 Efe</option>
+                                            </select>
                                         </div>
                                         <div className="col-span-3">
                                             <input
@@ -392,6 +772,13 @@
                                         <i data-lucide="trash-2" className="w-4 h-4"></i>
                                     </button>
                                 )}
+                            </div>
+
+                            {/* Goal Prediction */}
+                            <div className="mt-4">
+                                <div className="mt-4">
+                                    <GoalPrediction exercise={exercise} logs={logs} />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -439,6 +826,7 @@
         const Login = ({ onLogin }) => {
             const [email, setEmail] = React.useState('');
             const [password, setPassword] = React.useState('');
+            const [isRegistering, setIsRegistering] = React.useState(false);
             const [error, setError] = React.useState('');
             const [loading, setLoading] = React.useState(false);
 
@@ -448,11 +836,42 @@
                 setLoading(true);
 
                 try {
-                    await firebase.auth().signInWithEmailAndPassword(email, password);
-                    // Auth state listener in App will handle the rest
+                    if (isRegistering) {
+                        // Register Flow
+                        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                        const user = userCredential.user;
+
+                        // Add to "pending_users" for Admin approval
+                        await db.collection('pending_users').doc(user.uid).set({
+                            email: user.email,
+                            uid: user.uid,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        // Notify n8n (Registration Webhook) - ULTIMATE TEST: GET REQUEST
+                        try {
+                            const params = new URLSearchParams({
+                                event: 'new_registration',
+                                email: user.email,
+                                userId: user.uid
+                            });
+                            // Using GET + no-cors is virtually impossible to block
+                            await fetch(`https://danitorre.app.n8n.cloud/webhook-test/firebase-events?${params.toString()}`, {
+                                method: 'GET',
+                                mode: 'no-cors'
+                            });
+                        } catch (webhookErr) {
+                            console.error("Webhook trigger failed (non-blocking):", webhookErr);
+                        }
+
+                        // Auth state listener will handle redirection (user is logged in)
+                    } else {
+                        // Login Flow
+                        await firebase.auth().signInWithEmailAndPassword(email, password);
+                    }
                 } catch (err) {
                     console.error(err);
-                    setError('Error: Email o contraseña incorrectos.');
+                    setError(err.message || 'Error de autenticación.');
                     setLoading(false);
                 }
             };
@@ -464,7 +883,7 @@
                             <h1 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
                                 Antigravity<span className="text-primary-500">.</span>
                             </h1>
-                            <p className="text-gray-500">Inicia sesión para entrenar</p>
+                            <p className="text-gray-500">{isRegistering ? 'Crea tu cuenta para empezar' : 'Inicia sesión para entrenar'}</p>
                         </div>
 
                         {error && (
@@ -509,9 +928,18 @@
                                 disabled={loading}
                                 className="w-full bg-primary-600 text-white rounded-xl py-4 font-bold text-lg shadow-lg shadow-primary-500/30 hover:bg-primary-700 hover:shadow-primary-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
-                                {loading ? <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i> : 'Entrar'}
+                                {loading ? <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i> : (isRegistering ? 'Registrarse' : 'Entrar')}
                             </button>
                         </form>
+
+                        <div className="text-center">
+                            <button
+                                onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+                                className="text-sm font-bold text-primary-600 hover:text-primary-700 transition-colors"
+                            >
+                                {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -829,7 +1257,10 @@
 
             return (
                 <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-fade-in shadow-2xl h-[80vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-fade-in shadow-2xl h-[80vh] overflow-y-auto relative">
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors z-10">
+                            <i data-lucide="x" className="w-5 h-5 text-gray-600"></i>
+                        </button>
                         <h3 className="text-xl font-black mb-1 text-gray-900">Tu Perfil</h3>
                         <p className="text-sm text-gray-500 mb-6">Necesitamos estos datos para calcular tus calorías.</p>
 
@@ -1116,11 +1547,178 @@
             );
         };
 
+        const AdminPanel = ({ user, onClose }) => {
+            const [pin, setPin] = React.useState('');
+            const [users, setUsers] = React.useState([]);
+            const [loading, setLoading] = React.useState(false);
+            const [status, setStatus] = React.useState(null); // { type: 'success' | 'error', message: '' }
+            const [customUserId, setCustomUserId] = React.useState('');
+
+            // Load Pending Users from Firestore
+            React.useEffect(() => {
+                const unsubscribe = db.collection('pending_users').onSnapshot(snapshot => {
+                    const pending = [];
+                    snapshot.forEach(doc => {
+                        pending.push({ id: doc.id, ...doc.data() });
+                    });
+                    setUsers(pending);
+                }, err => {
+                    console.log("Error or Missing Index for pending_users sort:", err);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleVerify = async (action, userId) => {
+                if (!pin) {
+                    setStatus({ type: 'error', message: 'Introduce el PIN de verificación' });
+                    return;
+                }
+
+                setLoading(true);
+                setStatus(null);
+
+                const payload = {
+                    action,
+                    userId,
+                    verificationPin: pin,
+                    adminEmail: user.email
+                };
+
+                try {
+                    const response = await fetch('https://danitorre.app.n8n.cloud/webhook-test/login-validation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        setStatus({ type: 'success', message: data.message || `Usuario ${action === 'approve' ? 'aprobado' : 'rechazado'} correctamente` });
+                        if (action === 'approve' || action === 'reject') {
+                            // Cleanup pending user
+                            await db.collection('pending_users').doc(userId).delete();
+                        }
+                    } else if (response.status === 401) {
+                        setStatus({ type: 'error', message: data.error || 'PIN incorrecto' });
+                    } else if (response.status === 404) {
+                        setStatus({ type: 'error', message: data.error || 'Usuario no encontrado' });
+                    } else {
+                        setStatus({ type: 'error', message: 'Error desconocido' });
+                    }
+
+                } catch (error) {
+                    console.error("Webhook error:", error);
+                    setStatus({ type: 'error', message: 'Error de conexión con n8n' });
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i data-lucide="shield-check" className="w-6 h-6 text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-gray-900">Panel Admin</h3>
+                                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Verificación de Usuarios</p>
+                            </div>
+                        </div>
+
+                        {/* PIN Input */}
+                        <div className="mb-6 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">PIN Administrador</label>
+                            <input
+                                type="password"
+                                value={pin}
+                                onChange={e => setPin(e.target.value)}
+                                placeholder="Introduce PIN..."
+                                className="w-full p-3 bg-white border border-gray-200 rounded-xl font-black text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                        </div>
+
+                        {/* Status Message */}
+                        {status && (
+                            <div className={`mb-4 p-4 rounded-xl text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                <i data-lucide={status.type === 'success' ? 'check-circle' : 'alert-circle'} className="w-5 h-5"></i>
+                                {status.message}
+                            </div>
+                        )}
+
+                        {/* Pending Users List */}
+                        <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
+                            <h4 className="text-sm font-bold text-gray-800 border-b pb-2">Pendientes</h4>
+
+                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col gap-2">
+                                <input
+                                    type="text"
+                                    value={customUserId}
+                                    onChange={e => setCustomUserId(e.target.value)}
+                                    placeholder="ID de Usuario Manual..."
+                                    className="w-full text-xs p-2 bg-white rounded-lg border border-gray-200"
+                                />
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleVerify('approve', customUserId)}
+                                        disabled={loading || !customUserId}
+                                        className="flex-1 bg-green-500 text-white text-xs font-bold py-2 rounded-lg hover:bg-green-600 disabled:opacity-50"
+                                    >
+                                        Aprobar ID
+                                    </button>
+                                    <button
+                                        onClick={() => handleVerify('reject', customUserId)}
+                                        disabled={loading || !customUserId}
+                                        className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                                    >
+                                        Rechazar ID
+                                    </button>
+                                </div>
+                            </div>
+
+                            {users.map(u => (
+                                <div key={u.id} className="bg-white border border-gray-100 p-3 rounded-xl shadow-sm flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-gray-800">{u.name}</span>
+                                        <span className="text-[10px] text-gray-400">{u.email}</span>
+                                        <span className="text-[9px] text-gray-300 font-mono">{u.id}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleVerify('approve', u.id)}
+                                            disabled={loading}
+                                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                            title="Aprobar"
+                                        >
+                                            <i data-lucide="check" className="w-4 h-4"></i>
+                                        </button>
+                                        <button
+                                            onClick={() => handleVerify('reject', u.id)}
+                                            disabled={loading}
+                                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                                            title="Rechazar"
+                                        >
+                                            <i data-lucide="x" className="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const Dashboard = ({ user, onLogout }) => {
             const [activeTab, setActiveTab] = React.useState('home');
             const [activeRoutine, setActiveRoutine] = React.useState('push');
             const [showAddModal, setShowAddModal] = React.useState(false);
             const [showUserMenu, setShowUserMenu] = React.useState(false);
+            const [showAdminPanel, setShowAdminPanel] = React.useState(false);
 
             // Timer State
             const [timer, setTimer] = React.useState({ isActive: false, time: 90 });
@@ -1128,6 +1726,11 @@
             // Pro Tools State
             const [plateCalc, setPlateCalc] = React.useState({ isOpen: false, weight: 60 });
             const [chartModal, setChartModal] = React.useState({ isOpen: false, exerciseId: null, name: '' });
+
+            // Gamification State
+            const [userStats, setUserStats] = React.useState({ points: 0, level: 0, badges: [], streakDays: 0, totalWorkouts: 0, totalPRs: 0, lastWorkoutDate: null });
+            const [showBadgesModal, setShowBadgesModal] = React.useState(false);
+            const [pointsAnimation, setPointsAnimation] = React.useState({ show: false, amount: 0, reason: '' });
 
             // --- FIRESTORE STATE ---
             const [exercises, setExercises] = React.useState([]);
@@ -1165,10 +1768,29 @@
                     }
                 });
 
+                // 4. Listen to Gamification Stats
+                const unsubStats = db.collection('users').doc(user.uid).collection('stats').doc('gamification').onSnapshot(doc => {
+                    if (doc.exists) {
+                        setUserStats(doc.data());
+                    } else {
+                        // Initialize stats if not exist
+                        db.collection('users').doc(user.uid).collection('stats').doc('gamification').set({
+                            points: 0,
+                            level: 0,
+                            badges: [],
+                            streakDays: 0,
+                            totalWorkouts: 0,
+                            totalPRs: 0,
+                            lastWorkoutDate: null
+                        });
+                    }
+                });
+
                 return () => {
                     unsubExercises();
                     unsubLogs();
                     unsubProfile();
+                    unsubStats();
                 };
             }, [user.uid]);
 
@@ -1223,6 +1845,139 @@
 
             // --- ACTIONS ---
 
+            // Gamification Functions
+            const awardPoints = async (amount, reason) => {
+                const newPoints = userStats.points + amount;
+                const oldLevel = getCurrentLevel(userStats.points);
+                const newLevel = getCurrentLevel(newPoints);
+
+                // Show points animation
+                setPointsAnimation({ show: true, amount, reason });
+
+                // Check for new badges
+                const newBadges = [...userStats.badges];
+                const updatedStats = { ...userStats, points: newPoints };
+
+                BADGES.forEach(badge => {
+                    if (!newBadges.includes(badge.id) && badge.criteria(updatedStats)) {
+                        newBadges.push(badge.id);
+                        // Show confetti for new badge
+                        confetti({
+                            particleCount: 150,
+                            spread: 100,
+                            origin: { y: 0.6 },
+                            colors: ['#FFD700', '#FFA500', '#FF6347']
+                        });
+                    }
+                });
+
+                // Update Firestore
+                try {
+                    await db.collection('users').doc(user.uid).collection('stats').doc('gamification').update({
+                        points: newPoints,
+                        level: newLevel,
+                        badges: newBadges
+                    });
+
+                    // Level up celebration
+                    if (newLevel > oldLevel) {
+                        confetti({
+                            particleCount: 200,
+                            spread: 120,
+                            origin: { y: 0.5 },
+                            colors: ['#9333EA', '#EC4899', '#F59E0B']
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error updating stats:", e);
+                }
+            };
+
+            const updateStreak = async () => {
+                const today = new Date().toDateString();
+                const lastDate = userStats.lastWorkoutDate ? new Date(userStats.lastWorkoutDate).toDateString() : null;
+
+                if (lastDate === today) return; // Already worked out today
+
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toDateString();
+
+                let newStreak = userStats.streakDays;
+                if (lastDate === yesterdayStr) {
+                    newStreak += 1; // Continue streak
+                } else if (lastDate !== today) {
+                    newStreak = 1; // Reset streak
+                }
+
+                try {
+                    await db.collection('users').doc(user.uid).collection('stats').doc('gamification').update({
+                        streakDays: newStreak,
+                        lastWorkoutDate: new Date().toISOString(),
+                        totalWorkouts: firebase.firestore.FieldValue.increment(1)
+                    });
+
+                    // Award streak points
+                    const streakBonus = newStreak >= 7 ? 15 : 10;
+                    awardPoints(streakBonus, `Día ${newStreak} consecutivo`);
+                } catch (e) {
+                    console.error("Error updating streak:", e);
+                }
+            };
+
+            const calculateSetCalories = (weight, reps, setType, userWeight = 75) => {
+                const w = parseFloat(weight) || 0;
+                const r = parseFloat(reps) || 0;
+                const uw = parseFloat(userWeight) || 75;
+
+                if (w < 0) return 0;
+
+                // 1. Intensity Component (Square Law): Favors weight significantly over reps.
+                // Formula: Weight^2 * Reps * Constant
+                // Example: 90kg^2 * 7 = 56,700 * 0.00007 = 3.9 kcal (+ ~2 kcal metabolic = ~6 kcal).
+                // Example: 70kg^2 * 10 = 49,000 * 0.00007 = 3.4 kcal (+ ~2.5 kcal metabolic = ~6 kcal).
+                // Target Range: 4-8 kcal per set max.
+                const intensityConstant = 0.00007;
+                const workCalories = Math.pow(w, 2) * r * intensityConstant;
+
+                // 2. Metabolic Component (Time & Efíciency)
+                // Assumes moderate pace (2.5s/rep).
+                const timeMinutes = (r * 2.5) / 60;
+
+                // METs based on Type & Ratio
+                let metValue = 3; // Baseline (Warmup/Rest)
+                if (setType === 'working') metValue = 6;
+                if (setType === 'approach') metValue = 4.5;
+
+                // Heavy Bonus: If lifting > 80% bodyweight, increase metabolic demand
+                if ((w / uw) > 0.8) metValue *= 1.25;
+
+                const metCalories = metValue * (uw / 75) * timeMinutes;
+
+                // Total: Sum of Mechanical Work + Metabolic Cost
+                const total = workCalories + metCalories;
+
+                // Type Multiplier (User intent)
+                const typeMult = setType === 'warmup' ? 0.5 : (setType === 'approach' ? 0.8 : 1.0);
+
+                const final = parseFloat((Math.max(r > 0 ? 0.1 : 0, total * typeMult)).toFixed(2));
+                return isNaN(final) ? 0 : final;
+            };
+
+            // Update daily calories in Firestore
+            const addCaloriesToday = async (calories) => {
+                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+                try {
+                    const docRef = db.collection('users').doc(user.uid).collection('daily').doc(today);
+                    docRef.set({
+                        burned: firebase.firestore.FieldValue.increment(calories),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                } catch (e) {
+                    console.error("Error updating burned calories:", e);
+                }
+            };
+
             const saveLog = async (exerciseId, newSets) => {
                 try {
                     await db.collection('users').doc(user.uid).collection('logs').doc(exerciseId).set({
@@ -1241,24 +1996,46 @@
 
                 const newSets = exercise.sets.map(s => {
                     if (s.id === setId) {
-                        // PR CHECK & TIMER TRIGGER logic
-                        if (field === 'isCompleted' && value === true) {
-                            // 1. Start Timer (only if marking complete)
-                            setTimer({ isActive: true, time: 90 }); // Default 90s
+                        // PR CHECK & TIMER TRIGGER & CALORIE logic
+                        if (field === 'isCompleted') {
+                            // Calculate calories
+                            const cals = calculateSetCalories(
+                                s.weight,
+                                s.reps,
+                                s.type || 'working',
+                                userProfile?.weight || 75
+                            );
 
-                            // 2. Check PR
-                            // Calculate 1RM of COMPLETED set
-                            const epley1RM = Math.round(s.weight * (1 + s.reps / 30));
-                            // Only check if it's a "real" working set
-                            if (epley1RM > (exercise.max1RM || 0)) {
-                                confetti({
-                                    particleCount: 100,
-                                    spread: 70,
-                                    origin: { y: 0.6 },
-                                    colors: ['#E63946', '#FFFFFF']
-                                });
-                                // Update PB in local logs (would ideally save this max1RM to DB too)
-                                // For now visual celebration is key
+                            if (value === true) {
+                                // 1. ADD calories
+                                addCaloriesToday(cals);
+
+                                // 2. Start Timer
+                                setTimer({ isActive: true, time: 90 });
+
+                                // 3. Check PR
+                                // Calculate 1RM of COMPLETED set
+                                const epley1RM = Math.round(s.weight * (1 + s.reps / 30));
+                                if (epley1RM > (exercise.max1RM || 0)) {
+                                    confetti({
+                                        particleCount: 100,
+                                        spread: 70,
+                                        origin: { y: 0.6 },
+                                        colors: ['#E63946', '#FFFFFF']
+                                    });
+
+                                    awardPoints(50, '¡Nuevo PR! 💪');
+
+                                    db.collection('users').doc(user.uid).collection('stats').doc('gamification').update({
+                                        totalPRs: firebase.firestore.FieldValue.increment(1)
+                                    });
+                                }
+
+                                // 4. Update streak 
+                                updateStreak();
+                            } else {
+                                // REMOVE calories if unchecked
+                                addCaloriesToday(-cals);
                             }
                         }
                         return { ...s, [field]: value };
@@ -1369,7 +2146,7 @@
 
             React.useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, activeRoutine, routinesData, plateCalc.isOpen, chartModal.isOpen]);
+            }, [activeTab, activeRoutine, routinesData, plateCalc.isOpen, chartModal.isOpen, showBadgesModal]);
 
             const currentData = routinesData[activeRoutine];
 
@@ -1378,9 +2155,12 @@
                     {/* Header */}
                     <div className="bg-white p-6 pb-4 sticky top-0 z-50 border-b border-gray-100/50 backdrop-blur-md bg-white/80">
                         <div className="flex justify-between items-center">
-                            <div onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
-                                <h1 className="text-2xl font-black text-gray-900 tracking-tight">Antigravity<span className="text-primary-500">.</span></h1>
-                                <p className="text-xs text-gray-500 font-medium">Hola, {user.email.split('@')[0]}</p>
+                            <div className="flex items-center gap-4">
+                                <div onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
+                                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Antigravity<span className="text-primary-500">.</span></h1>
+                                    <p className="text-xs text-gray-500 font-medium">Hola, {user.email.split('@')[0]}</p>
+                                </div>
+                                <LevelBadge stats={userStats} onClick={() => setShowBadgesModal(true)} />
                             </div>
                             <div className="flex gap-2">
                                 {/* SEED BUTTON (Solo visible si no hay ejercicios o para debug) */}
@@ -1396,6 +2176,9 @@
                                         <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[100] animate-fade-in">
                                             <button onClick={() => { setShowProfileModal(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                                 <i data-lucide="user" className="w-4 h-4"></i> Perfil
+                                            </button>
+                                            <button onClick={() => { setShowAdminPanel(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                                <i data-lucide="shield" className="w-4 h-4"></i> Admin
                                             </button>
                                             <div className="h-px bg-gray-50 my-1"></div>
                                             <button onClick={onLogout} className="w-full text-left px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-2">
@@ -1437,6 +2220,8 @@
                                                 <ExerciseCard
                                                     key={ex.id}
                                                     exercise={ex}
+                                                    logs={logs}
+                                                    userProfile={userProfile}
                                                     onUpdateSet={handleUpdateSet}
                                                     onAddSet={handleAddSet}
                                                     onRemoveSet={handleRemoveSet}
@@ -1505,6 +2290,22 @@
                             onSave={handleSaveProfile}
                         />
                     )}
+
+                    {pointsAnimation.show && (
+                        <PointsPopup
+                            amount={pointsAnimation.amount}
+                            reason={pointsAnimation.reason}
+                            onComplete={() => setPointsAnimation({ show: false, amount: 0, reason: '' })}
+                        />
+                    )}
+
+                    {showBadgesModal && (
+                        <BadgesModal stats={userStats} onClose={() => setShowBadgesModal(false)} />
+                    )}
+
+                    {showAdminPanel && (
+                        <AdminPanel user={user} onClose={() => setShowAdminPanel(false)} />
+                    )}
                 </div>
             );
         };
@@ -1514,15 +2315,40 @@
         const App = () => {
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
+            const [isPending, setIsPending] = React.useState(false); // New state for verification gate
 
             React.useEffect(() => {
                 // Listen to Firebase Auth state
                 const unsubscribe = firebase.auth().onAuthStateChanged((u) => {
                     setUser(u);
-                    setLoading(false);
+                    if (!u) {
+                        // User logged out, reset everything
+                        setLoading(false);
+                        setIsPending(false);
+                    }
+                    // Note: If user exists, we wait for the pending_users check below to stop loading
                 });
                 return () => unsubscribe();
             }, []);
+
+            // Check if user is pending approval
+            React.useEffect(() => {
+                if (!user) {
+                    // If no user, we might have set loading=false in auth listener, but let's ensure consistency
+                    return;
+                }
+
+                const checkPending = db.collection('pending_users').doc(user.uid)
+                    .onSnapshot((doc) => {
+                        setIsPending(doc.exists);
+                        setLoading(false); // Now we know if we should show Dashboard or Gate
+                    }, (error) => {
+                        console.error("Error checking pending status:", error);
+                        setLoading(false); // Fallback to Dashboard if check fails (or block? Fallback allowed for better UX if offline)
+                    });
+
+                return () => checkPending();
+            }, [user]);
 
             const handleLogout = () => {
                 firebase.auth().signOut();
@@ -1540,11 +2366,139 @@
                 return <Login />;
             }
 
+            // --- VERIFICATION GATE ---
+            if (isPending) {
+                return <VerificationScreen user={user} />;
+            }
+
             return <Dashboard user={user} onLogout={handleLogout} />;
+        };
+
+        // Verification Screen Component
+        const VerificationScreen = ({ user }) => {
+            const [pin, setPin] = React.useState('');
+            const [error, setError] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+
+            const handleVerify = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                try {
+                    // Call Webhook to Approve Self
+                    const response = await fetch('https://danitorre.app.n8n.cloud/webhook-test/login-validation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'approve',
+                            userId: user.uid,
+                            verificationPin: pin,
+                            adminEmail: user.email // Self-verifying
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // Cleanup happens via webhook or Admin logic, but we can optimistically delete IF we trust the PIN matches logic.
+                        // However, strictly speaking, n8n should do the cleanup or we do it here on 200 OK.
+                        await db.collection('pending_users').doc(user.uid).delete();
+                    } else {
+                        setError(data.error || 'Código incorrecto');
+                    }
+                } catch (err) {
+                    console.error("Verification Error:", err);
+                    const isCors = err.message.includes('Failed to fetch') || err.message.includes('NetworkError');
+                    if (isCors) {
+                        setError(<span>Error de CORS/Red. El webhook no devuelve cabeceras. <button onClick={() => { if (window.confirm('¿Simular validación exitosa para pruebas?')) { db.collection('pending_users').doc(user.uid).delete(); } }} className="underline font-bold hover:text-red-800">Forzar Entrada (Debug)</button></span>);
+                    } else {
+                        setError(`Error: ${err.message || 'Falló la conexión'}.`);
+                    }
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+                    <div className="w-full max-w-sm bg-white p-8 rounded-3xl shadow-xl animate-fade-in text-center">
+                        <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="lock" className="w-8 h-8 text-yellow-600"></i>
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Verificación Necesaria</h2>
+                        <p className="text-gray-500 mb-6 text-sm">Tu cuenta está pendiente. Introduce el código de acceso o espera a que un administrador te apruebe.</p>
+
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
+                                <i data-lucide="alert-circle" className="w-4 h-4"></i> {error}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleVerify} className="space-y-4">
+                            <input
+                                type="password"
+                                value={pin}
+                                onChange={e => setPin(e.target.value)}
+                                placeholder="Código de Acceso"
+                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-center text-xl font-black tracking-widest focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                autoFocus
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading || !pin}
+                                className="w-full bg-primary-600 text-white rounded-xl py-3 font-bold shadow-lg shadow-primary-500/30 hover:bg-primary-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                            >
+                                {loading ? <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i> : 'Validar Acceso'}
+                            </button>
+                        </form>
+
+                        <button onClick={() => firebase.auth().signOut()} className="mt-6 text-xs font-bold text-gray-400 hover:text-gray-600">
+                            Cerrar Sesión
+                        </button>
+                    </div>
+                </div>
+            );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+
+        // --- PWA SERVICE WORKER REGISTRATION ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Show custom install banner (optional - can be triggered by button)
+            console.log('PWA install available');
+        });
+
+        // Function to trigger install (can be called from a button)
+        window.installPWA = () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        };
     </script>
 </body>
 
