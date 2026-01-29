@@ -1,0 +1,23 @@
+        // --- COMPONENTS ---
+
+        // SAFE ICON COMPONENT (Prevents React crashes)
+        const Icon = React.memo(({ name, className, ...props }) => {
+            const containerRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (!containerRef.current || !window.lucide) return;
+
+                const i = document.createElement('i');
+                i.setAttribute('data-lucide', name);
+                if (className) i.setAttribute('class', className);
+                
+                containerRef.current.innerHTML = '';
+                containerRef.current.appendChild(i);
+                
+                window.lucide.createIcons({
+                    root: containerRef.current
+                });
+            }, [name, className]);
+
+            return <span ref={containerRef} style={{ display: 'contents' }}></span>; 
+        });

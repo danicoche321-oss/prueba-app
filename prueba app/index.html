@@ -41,295 +41,7 @@
     <!-- Chart.js for Progress -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            -webkit-tap-highlight-color: transparent;
-            overscroll-behavior-y: none;
-            background-color: #fafaf9;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        /* Dark Mode - Fully Dark Theme */
-        body.dark {
-            background-color: #0a0a0a;
-            color: #f5f5f4;
-        }
-
-        /* Main backgrounds - pure black */
-        body.dark .bg-white {
-            background-color: #1a1a1a !important;
-        }
-
-        body.dark .bg-gray-50,
-        body.dark .bg-stone-50 {
-            background-color: #0f0f0f !important;
-        }
-
-        body.dark .bg-gray-100,
-        body.dark .bg-stone-100 {
-            background-color: #1a1a1a !important;
-        }
-
-        body.dark .bg-gray-200,
-        body.dark .bg-stone-200 {
-            background-color: #262626 !important;
-        }
-
-        /* Text colors - high contrast */
-        body.dark .text-gray-900,
-        body.dark .text-stone-900,
-        body.dark .text-gray-800,
-        body.dark .text-stone-800 {
-            color: #fafafa !important;
-        }
-
-        body.dark .text-gray-700,
-        body.dark .text-stone-700 {
-            color: #e5e5e5 !important;
-        }
-
-        body.dark .text-gray-600,
-        body.dark .text-stone-600 {
-            color: #d4d4d4 !important;
-        }
-
-        body.dark .text-gray-500,
-        body.dark .text-stone-500 {
-            color: #a3a3a3 !important;
-        }
-
-        body.dark .text-gray-400,
-        body.dark .text-stone-400 {
-            color: #737373 !important;
-        }
-
-        body.dark .text-gray-300,
-        body.dark .text-stone-300 {
-            color: #525252 !important;
-        }
-
-        /* Borders */
-        body.dark .border-stone-100,
-        body.dark .border-gray-100 {
-            border-color: #2a2a2a !important;
-        }
-
-        body.dark .border-stone-200,
-        body.dark .border-gray-200 {
-            border-color: #3a3a3a !important;
-        }
-
-        body.dark .border-white {
-            border-color: #2a2a2a !important;
-        }
-
-        /* Colored backgrounds in dark mode */
-        body.dark .bg-primary-50 {
-            background-color: rgba(230, 57, 70, 0.1) !important;
-        }
-
-        body.dark .bg-primary-100 {
-            background-color: rgba(230, 57, 70, 0.15) !important;
-        }
-
-        body.dark .bg-blue-50 {
-            background-color: rgba(59, 130, 246, 0.1) !important;
-        }
-
-        body.dark .bg-red-50 {
-            background-color: rgba(239, 68, 68, 0.1) !important;
-        }
-
-        body.dark .bg-green-50 {
-            background-color: rgba(34, 197, 94, 0.1) !important;
-        }
-
-        body.dark .bg-yellow-50 {
-            background-color: rgba(234, 179, 8, 0.1) !important;
-        }
-
-        body.dark .bg-purple-50 {
-            background-color: rgba(168, 85, 247, 0.1) !important;
-        }
-
-        body.dark .bg-gold-50 {
-            background-color: rgba(234, 179, 8, 0.1) !important;
-        }
-
-        /* Glass panels */
-        body.dark .glass-panel {
-            background: rgba(26, 26, 26, 0.8);
-            border: 1px solid rgba(58, 58, 58, 0.5);
-        }
-
-        /* Form inputs */
-        body.dark input,
-        body.dark select,
-        body.dark textarea {
-            background-color: #0f0f0f !important;
-            color: #fafafa !important;
-            border-color: #2a2a2a !important;
-        }
-
-        body.dark input::placeholder,
-        body.dark textarea::placeholder {
-            color: #525252 !important;
-        }
-
-        body.dark input:focus,
-        body.dark select:focus,
-        body.dark textarea:focus {
-            border-color: #3b82f6 !important;
-            background-color: #1a1a1a !important;
-        }
-
-        /* Gradients */
-        body.dark .bg-gradient-to-b {
-            background-image: linear-gradient(to bottom, #1a1a1a, #0f0f0f) !important;
-        }
-
-        /* Shadows - softer in dark mode */
-        body.dark [class*="shadow-"] {
-            --tw-shadow-color: rgba(0, 0, 0, 0.5);
-        }
-
-        /* Special elements */
-        body.dark .backdrop-blur-md,
-        body.dark .backdrop-blur-lg,
-        body.dark .backdrop-blur-xl {
-            background-color: rgba(15, 15, 15, 0.85) !important;
-        }
-
-        /* Goal Prediction Components */
-        body.dark .bg-gradient-to-br {
-            background-image: none !important;
-        }
-
-        body.dark .from-purple-50 {
-            background-color: rgba(168, 85, 247, 0.15) !important;
-        }
-
-        body.dark .from-pink-50 {
-            background-color: rgba(236, 72, 153, 0.15) !important;
-        }
-
-        body.dark .from-gray-50 {
-            background-color: #1a1a1a !important;
-        }
-
-        body.dark .to-purple-50,
-        body.dark .to-pink-50 {
-            background-color: rgba(168, 85, 247, 0.1) !important;
-        }
-
-        body.dark .to-gray-100 {
-            background-color: #262626 !important;
-        }
-
-        body.dark .border-purple-200,
-        body.dark .border-purple-300 {
-            border-color: rgba(168, 85, 247, 0.3) !important;
-        }
-
-        body.dark .border-pink-200,
-        body.dark .border-pink-300 {
-            border-color: rgba(236, 72, 153, 0.3) !important;
-        }
-
-        /* Confidence colors - maintain visibility */
-        body.dark .text-red-500 {
-            color: #f87171 !important;
-        }
-
-        body.dark .text-yellow-500 {
-            color: #fbbf24 !important;
-        }
-
-        body.dark .text-green-500,
-        body.dark .text-green-600 {
-            color: #4ade80 !important;
-        }
-
-        body.dark .text-purple-600 {
-            color: #c084fc !important;
-        }
-
-        body.dark .text-pink-600 {
-            color: #f472b6 !important;
-        }
-
-        body.dark .text-blue-600 {
-            color: #60a5fa !important;
-        }
-
-        /* Background colors for goal elements */
-        body.dark .bg-purple-100 {
-            background-color: rgba(168, 85, 247, 0.2) !important;
-        }
-
-        body.dark .bg-purple-500 {
-            background-color: #a855f7 !important;
-        }
-
-        body.dark .bg-pink-500 {
-            background-color: #ec4899 !important;
-        }
-
-        body.dark .bg-white\/50 {
-            background-color: rgba(26, 26, 26, 0.8) !important;
-        }
-
-        /* Progress bars in goal components */
-        body.dark .bg-gray-200 {
-            background-color: #2a2a2a !important;
-        }
-
-        /* Hover states for white backgrounds */
-        body.dark .hover\:bg-gray-100:hover {
-            background-color: #2a2a2a !important;
-        }
-
-        body.dark .hover\:bg-white:hover {
-            background-color: #1a1a1a !important;
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .animate-slide-up {
-            animation: slideUp 0.5s ease-out forwards;
-        }
-
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 8px 32px 0 rgba(230, 57, 70, 0.05);
-        }
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
 
     <!-- Theme Config (Inlined) -->
     <script>
@@ -450,6 +162,28 @@
     <!-- Main Application (Inlined) -->
     <script type="text/babel">
         // --- COMPONENTS ---
+
+        // SAFE ICON COMPONENT (Prevents React crashes)
+        const Icon = React.memo(({ name, className, ...props }) => {
+            const containerRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (!containerRef.current || !window.lucide) return;
+
+                const i = document.createElement('i');
+                i.setAttribute('data-lucide', name);
+                if (className) i.setAttribute('class', className);
+
+                containerRef.current.innerHTML = '';
+                containerRef.current.appendChild(i);
+
+                window.lucide.createIcons({
+                    root: containerRef.current
+                });
+            }, [name, className]);
+
+            return <span ref={containerRef} style={{ display: 'contents' }}></span>;
+        });
 
         const CalorieTracker = React.memo(({ user, target = 2000 }) => {
             const [calories, setCalories] = React.useState(0);
@@ -1066,13 +800,13 @@
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <i data-lucide="trending-up" className="w-4 h-4 text-green-600"></i>
+                                    <Icon name="trending-up" className="w-4 h-4 text-green-600" />
                                     <p className="text-xs text-gray-600">
                                         Progreso: <span className="font-bold">+{prediction.progressPerWeek}kg/semana</span>
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <i data-lucide="gauge" className="w-4 h-4 text-blue-600"></i>
+                                    <Icon name="gauge" className="w-4 h-4 text-blue-600" />
                                     <p className="text-xs text-gray-600">
                                         Confianza: <span className={`font-bold ${prediction.confidenceColor}`}>{prediction.confidence}</span>
                                     </p>
@@ -1119,7 +853,7 @@
                             onClick={(e) => { e.stopPropagation(); onEdit(exercise); }}
                             className="absolute top-2 right-2 p-2 text-stone-300 hover:text-stone-500 rounded-full hover:bg-stone-100 transition-colors z-[30]"
                         >
-                            <i data-lucide="settings-2" className="w-4 h-4"></i>
+                            <Icon name="settings-2" className="w-4 h-4" />
                         </button>
                         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-stone-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
                             <img src={exercise.img} alt={exercise.name} className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100" />
@@ -1128,14 +862,14 @@
                             <h4 className="font-bold text-gray-900 text-lg mb-1 leading-tight group-hover:text-primary-600 transition-colors">{exercise.name}</h4>
                             <div className="flex gap-2 text-xs items-center flex-wrap">
                                 <span className="text-stone-500 font-medium flex items-center gap-1">
-                                    <i data-lucide="dumbbell" className="w-3 h-3"></i> {exercise.muscle}
+                                    <Icon name="dumbbell" className="w-3 h-3" /> {exercise.muscle}
                                 </span>
                                 <span className="text-stone-300">•</span>
                                 <span className="text-stone-500 font-medium">{totalSets} Series</span>
                                 {exercise.max1RM > 0 && (
                                     <div className="flex gap-1 items-center ml-1">
                                         <span className="bg-orange-50 text-orange-600 border border-orange-100 px-1.5 py-0.5 rounded-md font-bold text-[10px] flex items-center gap-1">
-                                            <i data-lucide="trophy" className="w-3 h-3"></i> {exercise.max1RM}kg
+                                            <Icon name="trophy" className="w-3 h-3" /> {exercise.max1RM}kg
                                         </span>
                                         {bwRatio && (
                                             <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-md font-bold text-[10px]" title="Veces tu peso corporal">
@@ -1148,14 +882,14 @@
                         </div>
                         <div className="flex gap-2 relative z-20" onClick={e => e.stopPropagation()}>
                             <button onClick={e => { e.stopPropagation(); onOpenCalc(exercise.defaultWeight || 60); }} className="p-2.5 bg-stone-50 hover:bg-stone-100 rounded-xl text-stone-500 transition-colors" title="Calculadora Discos">
-                                <i data-lucide="disc" className="w-5 h-5"></i>
+                                <Icon name="disc" className="w-5 h-5" />
                             </button>
                             <button onClick={e => { e.stopPropagation(); onOpenChart(exercise.id, exercise.name); }} className="p-2.5 bg-stone-50 hover:bg-stone-100 rounded-xl text-stone-500 transition-colors" title="Ver Gráfica">
-                                <i data-lucide="line-chart" className="w-5 h-5"></i>
+                                <Icon name="line-chart" className="w-5 h-5" />
                             </button>
                         </div>
                         <div className={`w-8 h-8 flex items-center justify-center rounded-full bg-stone-50 transform transition-transform duration-300 ${isOpen ? 'rotate-180 bg-stone-100' : ''}`}>
-                            <i data-lucide="chevron-down" className="w-5 h-5 text-stone-400"></i>
+                            <Icon name="chevron-down" className="w-5 h-5 text-stone-400" />
                         </div>
                     </div>
 
@@ -1215,7 +949,7 @@
                                                 onClick={() => onUpdateSet(exercise.id, set.id, 'isCompleted', !set.isCompleted)}
                                                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${set.isCompleted ? 'bg-green-500 text-white shadow-lg shadow-green-200 rotate-0' : 'bg-stone-100 text-stone-300 hover:bg-stone-200 hover:text-stone-400'}`}
                                             >
-                                                <i data-lucide="check" className={`w-5 h-5 stroke-[3px] transition-transform ${set.isCompleted ? 'scale-110' : 'scale-100'}`}></i>
+                                                <Icon name="check" className={`w-5 h-5 stroke-[3px] transition-transform ${set.isCompleted ? 'scale-110' : 'scale-100'}`} />
                                             </button>
                                         </div>
                                     </div>
@@ -1228,7 +962,7 @@
                                     className="flex-1 py-3 bg-white border border-stone-200 text-stone-600 rounded-xl text-xs font-bold hover:bg-primary-50 hover:text-primary-600 hover:border-primary-100 transition-all shadow-sm flex items-center justify-center gap-2 group/btn"
                                 >
                                     <div className="w-5 h-5 bg-stone-100 rounded-full flex items-center justify-center group-hover/btn:bg-primary-100 transition-colors">
-                                        <i data-lucide="plus" className="w-3 h-3"></i>
+                                        <Icon name="plus" className="w-3 h-3" />
                                     </div>
                                     Añadir Serie
                                 </button>
@@ -1237,7 +971,7 @@
                                         onClick={() => onRemoveSet(exercise.id)}
                                         className="w-12 flex items-center justify-center py-3 bg-white border border-stone-200 text-stone-400 rounded-xl hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-colors shadow-sm"
                                     >
-                                        <i data-lucide="trash-2" className="w-4 h-4"></i>
+                                        <Icon name="trash-2" className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
@@ -1281,7 +1015,7 @@
                         <span className="text-xl font-mono font-bold leading-none">{Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}</span>
                     </div>
                     <button onClick={onCancel} className="bg-gray-700 hover:bg-gray-600 p-1.5 rounded-full transition-colors">
-                        <i data-lucide="x" className="w-4 h-4"></i>
+                        <Icon name="x" className="w-4 h-4" />
                     </button>
                 </div>
             );
@@ -1397,7 +1131,7 @@
 
                         {error && (
                             <div className="bg-red-50 text-red-500 p-4 rounded-xl text-sm font-medium border border-red-100 flex items-center gap-2">
-                                <i data-lucide="alert-circle" className="w-4 h-4"></i>
+                                <Icon name="alert-circle" className="w-4 h-4" />
                                 {error}
                             </div>
                         )}
@@ -1451,7 +1185,7 @@
                                 disabled={loading}
                                 className="w-full bg-primary-600 text-white rounded-xl py-4 font-bold text-lg shadow-lg shadow-primary-500/30 hover:bg-primary-700 hover:shadow-primary-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
-                                {loading ? <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i> : (isRegistering ? 'Registrarse' : 'Entrar')}
+                                {loading ? <Icon name="loader-2" className="w-5 h-5 animate-spin" /> : (isRegistering ? 'Registrarse' : 'Entrar')}
                             </button>
                         </form>
 
@@ -1496,9 +1230,9 @@
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><Icon name="x" className="w-5 h-5" /></button>
 
-                        <h3 className="text-xl font-black mb-6 flex items-center gap-2"><i data-lucide="disc" className="w-6 h-6 text-primary-500"></i> Discos</h3>
+                        <h3 className="text-xl font-black mb-6 flex items-center gap-2"><Icon name="disc" className="w-6 h-6 text-primary-500" /> Discos</h3>
 
                         <div className="mb-8">
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Peso Total (Barra 20kg)</label>
@@ -1611,14 +1345,12 @@
                 return () => chart.destroy();
             }, [exerciseId, logs]);
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><Icon name="x" className="w-5 h-5" /></button>
                         <h3 className="text-xl font-black mb-2">{exerciseName}</h3>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-6">Progreso de Fuerza (1RM)</p>
                         <div className="relative h-64 w-full">
@@ -1635,9 +1367,7 @@
             const [selectedColor, setSelectedColor] = React.useState('red');
             const [loading, setLoading] = React.useState(false);
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             const icons = [
                 { id: 'dumbbell', label: 'Pesas' },
@@ -1685,7 +1415,7 @@
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><Icon name="x" className="w-5 h-5" /></button>
 
                         <h3 className="text-xl font-black mb-2 text-gray-900">Nueva Rutina</h3>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-6">Crea tu rutina personalizada</p>
@@ -1715,7 +1445,7 @@
                                             onClick={() => setSelectedIcon(icon.id)}
                                             className={`p-3 rounded-xl border-2 transition-all ${selectedIcon === icon.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'}`}
                                         >
-                                            <i data-lucide={icon.id} className={`w-6 h-6 mx-auto ${selectedIcon === icon.id ? 'text-primary-500' : 'text-gray-400'}`}></i>
+                                            <Icon name={icon.id} className={`w-6 h-6 mx-auto ${selectedIcon === icon.id ? 'text-primary-500' : 'text-gray-400'}`} />
                                         </button>
                                     ))}
                                 </div>
@@ -1742,7 +1472,7 @@
                                 disabled={loading || !name}
                                 className="w-full py-4 bg-primary-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary-500/30 hover:bg-primary-700 hover:shadow-primary-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {loading ? <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i> : 'Crear Rutina'}
+                                {loading ? <Icon name="loader-2" className="w-5 h-5 animate-spin" /> : 'Crear Rutina'}
                             </button>
                         </form>
                     </div>
@@ -1755,9 +1485,7 @@
             const [img, setImg] = React.useState(exercise.img);
             const [loading, setLoading] = React.useState(false);
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             const handleSave = async () => {
                 setLoading(true);
@@ -1777,7 +1505,7 @@
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><Icon name="x" className="w-5 h-5" /></button>
 
                         <h3 className="text-xl font-black mb-6 text-gray-900">Editar Ejercicio</h3>
 
@@ -1815,14 +1543,14 @@
                                     disabled={loading}
                                     className="flex-1 py-3 bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <i data-lucide="trash-2" className="w-4 h-4"></i> Borrar
+                                    <Icon name="trash-2" className="w-4 h-4" /> Borrar
                                 </button>
                                 <button
                                     onClick={handleSave}
                                     disabled={loading}
                                     className="flex-1 py-3 bg-primary-600 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30 hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    {loading ? <i data-lucide="loader-2" className="w-4 h-4 animate-spin"></i> : 'Guardar'}
+                                    {loading ? <Icon name="loader-2" className="w-4 h-4 animate-spin" /> : 'Guardar'}
                                 </button>
                             </div>
                         </div>
@@ -1845,8 +1573,9 @@
             // Sort: Favorites first, then base, then custom
             const sortedRoutines = React.useMemo(() => {
                 return [...allRoutines].sort((a, b) => {
-                    const isFavA = favorites.includes(a.id);
-                    const isFavB = favorites.includes(b.id);
+                    const safeFavs = Array.isArray(favorites) ? favorites : [];
+                    const isFavA = safeFavs.includes(a.id);
+                    const isFavB = safeFavs.includes(b.id);
                     if (isFavA && !isFavB) return -1;
                     if (!isFavA && isFavB) return 1;
                     return 0; // Keep original order otherwise
@@ -1882,8 +1611,8 @@
                                     : `bg-white text-gray-500 border ${colorClasses} hover:border-gray-200`
                                     }`}
                             >
-                                {isFav && <i data-lucide="star" className={`w-3 h-3 absolute top-1 right-1 fill-yellow-400 text-yellow-500 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}></i>}
-                                {routine.icon && <i data-lucide={routine.icon} className={`w-4 h-4 ${isActive ? 'text-white' : 'text-primary-500'}`}></i>}
+                                {isFav && <Icon name="star" className={`w-3 h-3 absolute top-1 right-1 fill-yellow-400 text-yellow-500 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`} />}
+                                {routine.icon && <Icon name={routine.icon} className={`w-4 h-4 ${isActive ? 'text-white' : 'text-primary-500'}`} />}
                                 {routine.name}
                             </button>
                         );
@@ -1894,7 +1623,7 @@
                         onClick={onCreateRoutine}
                         className="flex-shrink-0 px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2 bg-white text-primary-600 border-2 border-dashed border-primary-300 hover:bg-primary-50 hover:border-primary-400"
                     >
-                        <i data-lucide="plus-circle" className="w-4 h-4"></i>
+                        <Icon name="plus-circle" className="w-4 h-4" />
                         Nueva Rutina
                     </button>
                 </div>
@@ -1978,9 +1707,7 @@
             const [loading, setLoading] = React.useState(false);
             const [nickError, setNickError] = React.useState('');
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -2105,7 +1832,7 @@
                 <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-fade-in shadow-2xl h-[80vh] overflow-y-auto relative">
                         <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 bg-red-500 rounded-full hover:bg-red-600 transition-colors z-10 flex items-center justify-center shadow-lg">
-                            <i data-lucide="x" className="w-5 h-5 text-white"></i>
+                            <Icon name="x" className="w-5 h-5 text-white" />
                         </button>
                         <h3 className="text-xl font-black mb-1 text-gray-900">Tu Perfil</h3>
                         <p className="text-sm text-gray-500 mb-6">Necesitamos estos datos para calcular tus calorías.</p>
@@ -2304,9 +2031,7 @@
                 fetchHistory();
             }, [user]);
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             const getDaysInMonth = (date) => {
                 const year = date.getFullYear();
@@ -2350,25 +2075,25 @@
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={handlePrevMonth} className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl transition-colors backdrop-blur-md">
-                                    <i data-lucide="chevron-left" className="w-5 h-5"></i>
+                                    <Icon name="chevron-left" className="w-5 h-5" />
                                 </button>
                                 <button onClick={handleNextMonth} className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl transition-colors backdrop-blur-md">
-                                    <i data-lucide="chevron-right" className="w-5 h-5"></i>
+                                    <Icon name="chevron-right" className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-4 relative z-10">
                             <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/5 hover:bg-white/15 transition-colors">
-                                <div className="text-[10px] text-gray-400 mb-1 font-bold uppercase tracking-wider flex items-center gap-1"><i data-lucide="check-circle" className="w-3 h-3"></i> Activos</div>
+                                <div className="text-[10px] text-gray-400 mb-1 font-bold uppercase tracking-wider flex items-center gap-1"><Icon name="check-circle" className="w-3 h-3" /> Activos</div>
                                 <div className="text-2xl font-black">{currentMonthStats.activeDays} <span className="text-xs font-normal text-gray-400">días</span></div>
                             </div>
                             <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/5 hover:bg-white/15 transition-colors">
-                                <div className="text-[10px] text-red-300 mb-1 font-bold uppercase tracking-wider flex items-center gap-1"><i data-lucide="flame" className="w-3 h-3"></i> Kcal</div>
+                                <div className="text-[10px] text-red-300 mb-1 font-bold uppercase tracking-wider flex items-center gap-1"><Icon name="flame" className="w-3 h-3" /> Kcal</div>
                                 <div className="text-2xl font-black">{currentMonthStats.mBurned > 1000 ? (currentMonthStats.mBurned / 1000).toFixed(1) + 'k' : currentMonthStats.mBurned}</div>
                             </div>
                             <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/5 hover:bg-white/15 transition-colors">
-                                <div className="text-[10px] text-blue-300 mb-1 font-bold uppercase tracking-wider flex items-center gap-1"><i data-lucide="footprints" className="w-3 h-3"></i> Pasos</div>
+                                <div className="text-[10px] text-blue-300 mb-1 font-bold uppercase tracking-wider flex items-center gap-1"><Icon name="footprints" className="w-3 h-3" /> Pasos</div>
                                 <div className="text-2xl font-black">{(currentMonthStats.mSteps / 1000).toFixed(1)}k</div>
                             </div>
                         </div>
@@ -2410,10 +2135,10 @@
                                         {/* Icons Indicators */}
                                         <div className="flex gap-0.5 mt-0.5 h-3 items-center">
                                             {data?.burned > 0 && (
-                                                <i data-lucide="flame" className={`w-3 h-3 ${isToday ? 'text-white fill-white/30' : 'text-red-500 fill-red-100'}`}></i>
+                                                <Icon name="flame" className={`w-3 h-3 ${isToday ? 'text-white fill-white/30' : 'text-red-500 fill-red-100'}`} />
                                             )}
                                             {data?.steps > 0 && (
-                                                <i data-lucide="footprints" className={`w-3 h-3 ${isToday ? 'text-blue-100 fill-blue-500/30' : 'text-blue-400 fill-blue-50'}`}></i>
+                                                <Icon name="footprints" className={`w-3 h-3 ${isToday ? 'text-blue-100 fill-blue-500/30' : 'text-blue-400 fill-blue-50'}`} />
                                             )}
                                         </div>
                                     </div>
@@ -2455,9 +2180,7 @@
                 return () => unsubscribe();
             }, []);
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             const verifyPin = async (inputPin) => {
                 if (!inputPin) return false;
@@ -2570,11 +2293,11 @@
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><Icon name="x" className="w-5 h-5" /></button>
 
                         <div className="flex items-center gap-3 mb-6">
                             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                <i data-lucide="shield-check" className="w-6 h-6 text-purple-600"></i>
+                                <Icon name="shield-check" className="w-6 h-6 text-purple-600" />
                             </div>
                             <div>
                                 <h3 className="text-xl font-black text-gray-900">Panel Admin</h3>
@@ -2596,7 +2319,7 @@
 
                         {status && (
                             <div className={`mb-4 p-3 rounded-xl text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                <i data-lucide={status.type === 'success' ? 'check-circle' : 'alert-circle'} className="w-4 h-4"></i>
+                                <Icon name={status.type === 'success' ? 'check-circle' : 'alert-circle'} className="w-4 h-4" />
                                 {status.message}
                             </div>
                         )}
@@ -2629,8 +2352,8 @@
                                                     {u.nickname && <p className="text-xs text-purple-500 font-bold">@{u.nickname}</p>}
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    <button onClick={() => handleVerify('approve', u.id)} className="p-2 bg-green-100 text-green-600 rounded-lg"><i data-lucide="check" className="w-4 h-4"></i></button>
-                                                    <button onClick={() => handleVerify('reject', u.id)} className="p-2 bg-red-100 text-red-600 rounded-lg"><i data-lucide="x" className="w-4 h-4"></i></button>
+                                                    <button onClick={() => handleVerify('approve', u.id)} className="p-2 bg-green-100 text-green-600 rounded-lg"><Icon name="check" className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleVerify('reject', u.id)} className="p-2 bg-red-100 text-red-600 rounded-lg"><Icon name="x" className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         ))}
@@ -2660,7 +2383,7 @@
                                                     onClick={() => handleDeleteUser(u)}
                                                     className="px-3 py-1 bg-red-50 text-red-500 text-xs font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
                                                 >
-                                                    <i data-lucide="trash-2" className="w-3 h-3"></i> Borrar
+                                                    <Icon name="trash-2" className="w-3 h-3" /> Borrar
                                                 </button>
                                             </div>
                                         </div>
@@ -2802,7 +2525,7 @@
                         <div className="space-y-3">
                             {friends.length === 0 ? (
                                 <div className="text-center py-10 text-gray-400">
-                                    <i data-lucide="users" className="w-12 h-12 mx-auto mb-3 opacity-20"></i>
+                                    <Icon name="users" className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                     <p>No tienes amigos aún.</p>
                                     <button onClick={() => setActiveTab('add')} className="mt-4 text-primary-600 font-bold text-sm">Buscar amigos</button>
                                 </div>
@@ -2831,7 +2554,7 @@
                                             onClick={() => sendNudge(friend.uid, friend.name)}
                                             className="w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
                                         >
-                                            <i data-lucide="megaphone" className="w-5 h-5"></i>
+                                            <Icon name="megaphone" className="w-5 h-5" />
                                         </button>
                                     </div>
                                 ))
@@ -2850,12 +2573,12 @@
                                     className="w-full pl-4 pr-12 py-3 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 />
                                 <button type="submit" className="absolute right-2 top-2 p-1.5 bg-primary-600 text-white rounded-lg">
-                                    <i data-lucide="search" className="w-4 h-4"></i>
+                                    <Icon name="search" className="w-4 h-4" />
                                 </button>
                             </form>
 
                             <div className="space-y-2">
-                                {loading && <div className="text-center p-4"><i data-lucide="loader-2" className="w-6 h-6 animate-spin mx-auto text-primary-500"></i></div>}
+                                {loading && <div className="text-center p-4"><Icon name="loader-2" className="w-6 h-6 animate-spin mx-auto text-primary-500" /></div>}
 
                                 {searchResults.map(result => (
                                     <div key={result.uid} className="bg-white p-4 rounded-2xl shadow-lg border border-primary-100 flex items-center justify-between animate-fade-in">
@@ -2895,7 +2618,10 @@
                 const unsubscribe = db.collection('users').doc(user.uid).collection('profile').doc('settings')
                     .onSnapshot(doc => {
                         if (doc.exists) {
-                            setFavoriteRoutines(doc.data().favorites || []);
+                            const data = doc.data();
+                            setFavoriteRoutines(Array.isArray(data?.favorites) ? data.favorites : []);
+                        } else {
+                            setFavoriteRoutines([]);
                         }
                     });
                 return () => unsubscribe();
@@ -2908,12 +2634,13 @@
             };
 
             const handleToggleFavorite = async (routineId) => {
-                const isFav = favoriteRoutines.includes(routineId);
+                const safeFavs = Array.isArray(favoriteRoutines) ? favoriteRoutines : [];
+                const isFav = safeFavs.includes(routineId);
                 let newFavs;
                 if (isFav) {
-                    newFavs = favoriteRoutines.filter(id => id !== routineId);
+                    newFavs = safeFavs.filter(id => id !== routineId);
                 } else {
-                    newFavs = [...favoriteRoutines, routineId];
+                    newFavs = [...safeFavs, routineId];
                 }
 
                 await db.collection('users').doc(user.uid).collection('profile').doc('settings').set({
@@ -3497,9 +3224,7 @@
                 }
             };
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, activeRoutine, routinesData, plateCalc.isOpen, chartModal.isOpen, showBadgesModal]);
+
 
             const currentData = routinesData[activeRoutine] || { name: 'Cargando...', stats: [], exercises: [] };
 
@@ -3511,7 +3236,7 @@
                             <div key={notif.id} className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border-l-4 border-primary-500 animate-slide-in pointer-events-auto flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                                        <i data-lucide={notif.type === 'nudge' ? 'megaphone' : 'bell'} className="w-5 h-5 text-primary-600"></i>
+                                        <Icon name={notif.type === 'nudge' ? 'megaphone' : 'bell'} className="w-5 h-5 text-primary-600" />
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-sm">
@@ -3521,7 +3246,7 @@
                                     </div>
                                 </div>
                                 <button onClick={() => dismissNotification(notif.id)} className="p-2 hover:bg-gray-100 rounded-full">
-                                    <i data-lucide="x" className="w-4 h-4 text-gray-400"></i>
+                                    <Icon name="x" className="w-4 h-4 text-gray-400" />
                                 </button>
                             </div>
                         ))}
@@ -3530,7 +3255,7 @@
                     {/* Offline Banner */}
                     {!isOnline && (
                         <div className="bg-yellow-500 text-white p-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-md animate-slide-up">
-                            <i className="inline-block mr-2" data-lucide="wifi-off"></i>
+                            <Icon name="wifi-off" className="inline-block mr-2" />
                             Modo sin conexión - Guardando localmente...
                         </div>
                     )}
@@ -3540,7 +3265,7 @@
                             <div className="flex items-center gap-4">
                                 <div onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
                                     <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                                        FitnessConDios <i data-lucide="dumbbell" className="w-6 h-6 text-primary-500 fill-primary-500"></i>
+                                        FitnessConDios <Icon name="dumbbell" className="w-6 h-6 text-primary-500 fill-primary-500" />
                                     </h1>
                                     <p className="text-xs text-stone-500 font-medium">Hola, {user.email.split('@')[0]}</p>
                                 </div>
@@ -3566,17 +3291,17 @@
                                     {showUserMenu && (
                                         <div className="absolute right-0 top-12 w-48 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white py-2 z-[100] animate-scale-in origin-top-right">
                                             <button onClick={() => { setShowProfileModal(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-stone-50 flex items-center gap-3">
-                                                <i data-lucide="user" className="w-4 h-4 text-stone-400"></i> Perfil
+                                                <Icon name="user" className="w-4 h-4 text-stone-400" /> Perfil
                                             </button>
                                             <button onClick={() => { setShowAdminPanel(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-stone-50 flex items-center gap-3">
-                                                <i data-lucide="shield" className="w-4 h-4 text-stone-400"></i> Admin
+                                                <Icon name="shield" className="w-4 h-4 text-stone-400" /> Admin
                                             </button>
                                             <button onClick={() => { toggleDarkMode(); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-stone-50 flex items-center gap-3">
-                                                <i data-lucide={darkMode ? "sun" : "moon"} className="w-4 h-4 text-stone-400"></i> {darkMode ? 'Modo Claro' : 'Modo Oscuro'}
+                                                <Icon name={darkMode ? "sun" : "moon"} className="w-4 h-4 text-stone-400" /> {darkMode ? 'Modo Claro' : 'Modo Oscuro'}
                                             </button>
                                             <div className="h-px bg-gray-100 my-1 mx-4"></div>
                                             <button onClick={onLogout} className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-3">
-                                                <i data-lucide="log-out" className="w-4 h-4"></i> Cerrar Sesión
+                                                <Icon name="log-out" className="w-4 h-4" /> Cerrar Sesión
                                             </button>
                                         </div>
                                     )}
@@ -3609,7 +3334,7 @@
                                                 onClick={() => handleToggleFavorite(activeRoutine)}
                                                 className={`p-1.5 rounded-lg transition-colors ${favoriteRoutines.includes(activeRoutine) ? 'bg-yellow-50 text-yellow-500' : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'}`}
                                             >
-                                                <i data-lucide="star" className={`w-5 h-5 ${favoriteRoutines.includes(activeRoutine) ? 'fill-yellow-500' : ''}`}></i>
+                                                <Icon name="star" className={`w-5 h-5 ${favoriteRoutines.includes(activeRoutine) ? 'fill-yellow-500' : ''}`} />
                                             </button>
 
                                             {!['push', 'pull', 'legs'].includes(activeRoutine) && (
@@ -3617,13 +3342,13 @@
                                                     onClick={() => handleDeleteRoutine(activeRoutine, currentData.name)}
                                                     className="p-1.5 rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
                                                 >
-                                                    <i data-lucide="trash-2" className="w-5 h-5"></i>
+                                                    <Icon name="trash-2" className="w-5 h-5" />
                                                 </button>
                                             )}
                                         </div>
                                         <div className="flex gap-2">
                                             <button onClick={() => setShowAddModal(true)} className="text-xs bg-primary-50 text-primary-600 px-3 py-1 rounded-lg font-bold hover:bg-primary-100 transition-colors flex items-center gap-1">
-                                                <i data-lucide="plus" className="w-3 h-3"></i> Ejercicio
+                                                <Icon name="plus" className="w-3 h-3" /> Ejercicio
                                             </button>
                                             <span className="text-xs text-gray-400 font-medium self-center">Auto-guardado</span>
                                         </div>
@@ -3631,7 +3356,7 @@
                                     <div className="space-y-4">
                                         {/* Search Filter */}
                                         <div className="relative">
-                                            <i data-lucide="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                                            <Icon name="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                                             <input
                                                 type="text"
                                                 placeholder="Buscar ejercicio..."
@@ -3687,7 +3412,7 @@
                             className={`relative flex flex-col items-center gap-1 transition-all duration-300 w-16 group ${activeTab === 'home' ? 'text-primary-600 -translate-y-2' : 'text-stone-400 hover:text-stone-600'}`}
                         >
                             <div className={`absolute -top-4 w-8 h-1 bg-gradient-to-r from-primary-500 to-primary-600 rounded-b-full shadow-lg shadow-primary-500/30 transition-all duration-300 ${activeTab === 'home' ? 'opacity-100' : 'opacity-0 translate-y-2'}`}></div>
-                            <i data-lucide="home" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'home' ? 'fill-primary-50 stroke-primary-600' : ''}`}></i>
+                            <Icon name="home" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'home' ? 'fill-primary-50 stroke-primary-600' : ''}`} />
                             <span className={`text-[10px] font-bold transition-opacity duration-300 ${activeTab === 'home' ? 'opacity-100' : 'opacity-0 hidden'}`}>Inicio</span>
                         </button>
 
@@ -3697,7 +3422,7 @@
                         >
                             <div className={`absolute -top-4 w-8 h-1 bg-gradient-to-r from-primary-500 to-primary-600 rounded-b-full shadow-lg shadow-primary-500/30 transition-all duration-300 ${activeTab === 'social' ? 'opacity-100' : 'opacity-0 translate-y-2'}`}></div>
                             <div className="relative">
-                                <i data-lucide="users" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'social' ? 'fill-primary-50 stroke-primary-600' : ''}`}></i>
+                                <Icon name="users" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'social' ? 'fill-primary-50 stroke-primary-600' : ''}`} />
                                 {notifications.length > 0 && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>}
                             </div>
                             <span className={`text-[10px] font-bold transition-opacity duration-300 ${activeTab === 'social' ? 'opacity-100' : 'opacity-0 hidden'}`}>Social</span>
@@ -3709,7 +3434,7 @@
                                 className="group w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full text-white shadow-xl shadow-primary-500/40 flex items-center justify-center transform transition-all duration-300 hover:scale-110 active:scale-95 border-4 border-stone-50"
                             >
                                 <div className="absolute inset-0 rounded-full border border-white/20"></div>
-                                <i data-lucide="plus" className="w-8 h-8 stroke-[3px] transition-transform duration-300 group-hover:rotate-90"></i>
+                                <Icon name="plus" className="w-8 h-8 stroke-[3px] transition-transform duration-300 group-hover:rotate-90" />
                             </button>
                         </div>
 
@@ -3718,7 +3443,7 @@
                             className={`relative flex flex-col items-center gap-1 transition-all duration-300 w-16 group ${activeTab === 'calendar' ? 'text-primary-600 -translate-y-2' : 'text-stone-400 hover:text-stone-600'}`}
                         >
                             <div className={`absolute -top-4 w-8 h-1 bg-gradient-to-r from-primary-500 to-primary-600 rounded-b-full shadow-lg shadow-primary-500/30 transition-all duration-300 ${activeTab === 'calendar' ? 'opacity-100' : 'opacity-0 translate-y-2'}`}></div>
-                            <i data-lucide="calendar-days" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'calendar' ? 'fill-primary-50 stroke-primary-600' : ''}`}></i>
+                            <Icon name="calendar-days" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'calendar' ? 'fill-primary-50 stroke-primary-600' : ''}`} />
                             <span className={`text-[10px] font-bold transition-opacity duration-300 ${activeTab === 'calendar' ? 'opacity-100' : 'opacity-0 hidden'}`}>Diario</span>
                         </button>
                     </div>
@@ -3795,15 +3520,56 @@
             );
         };
 
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null, errorInfo: null };
+            }
+
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+
+            componentDidCatch(error, errorInfo) {
+                console.error("ErrorBoundary caught error:", error, errorInfo);
+                this.setState({ errorInfo });
+            }
+
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex items-center justify-center p-6 bg-red-50">
+                            <div className="bg-white p-8 rounded-3xl shadow-xl max-w-lg w-full">
+                                <h2 className="text-2xl font-black text-red-600 mb-4 flex items-center gap-2">
+                                    <Icon name="alert-triangle" /> Algo salió mal
+                                </h2>
+                                <p className="text-gray-600 mb-4 font-medium">La aplicación ha encontrado un error inesperado.</p>
+                                <div className="bg-gray-100 p-4 rounded-xl text-xs font-mono overflow-auto max-h-48 mb-6 border border-gray-200">
+                                    {this.state.error && this.state.error.toString()}
+                                    <br />
+                                    {this.state.errorInfo && this.state.errorInfo.componentStack}
+                                </div>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-500/30 hover:bg-red-700 transition-colors"
+                                >
+                                    Recargar Página
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         // --- ROOT COMPONENT (Auth Handler) ---
 
         const App = () => {
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
 
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
+
 
             React.useEffect(() => {
                 // Listen to Firebase Auth state
@@ -3821,7 +3587,7 @@
             if (loading) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-white">
-                        <i data-lucide="loader-2" className="w-8 h-8 text-primary-500 animate-spin"></i>
+                        <Icon name="loader-2" className="w-8 h-8 text-primary-500 animate-spin" />
                     </div>
                 );
             }
@@ -3830,7 +3596,11 @@
                 return <Login />;
             }
 
-            return <Dashboard user={user} onLogout={handleLogout} />;
+            return (
+                <ErrorBoundary>
+                    <Dashboard user={user} onLogout={handleLogout} />
+                </ErrorBoundary>
+            );
         };
 
         // Verification Screen Component
@@ -3886,14 +3656,14 @@
                 <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
                     <div className="w-full max-w-sm bg-white p-8 rounded-3xl shadow-xl animate-fade-in text-center">
                         <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i data-lucide="lock" className="w-8 h-8 text-yellow-600"></i>
+                            <Icon name="lock" className="w-8 h-8 text-yellow-600" />
                         </div>
                         <h2 className="text-2xl font-black text-gray-900 mb-2">Verificación Necesaria</h2>
                         <p className="text-gray-500 mb-6 text-sm">Tu cuenta está pendiente. Introduce el código de acceso o espera a que un administrador te apruebe.</p>
 
                         {error && (
                             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                                <i data-lucide="alert-circle" className="w-4 h-4"></i> {error}
+                                <Icon name="alert-circle" className="w-4 h-4" /> {error}
                             </div>
                         )}
 
@@ -3911,7 +3681,7 @@
                                 disabled={loading || !pin}
                                 className="w-full bg-primary-600 text-white rounded-xl py-3 font-bold shadow-lg shadow-primary-500/30 hover:bg-primary-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                             >
-                                {loading ? <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i> : 'Validar Acceso'}
+                                {loading ? <Icon name="loader-2" className="w-5 h-5 animate-spin" /> : 'Validar Acceso'}
                             </button>
                         </form>
 
