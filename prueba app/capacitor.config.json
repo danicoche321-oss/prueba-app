@@ -1,0 +1,6 @@
+{
+    "appId": "com.antigravity.app",
+    "appName": "Antigravity",
+    "webDir": "prueba app",
+    "bundledWebRuntime": false
+}

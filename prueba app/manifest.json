@@ -1,6 +1,6 @@
 {
-  "name": "Antigravity Fitness",
-  "short_name": "Antigravity",
+  "name": "FitnessConDios App",
+  "short_name": "FitnessConDios",
   "description": "Tu entrenador personal de bolsillo con gamificación y seguimiento avanzado",
   "start_url": "/index.html",
   "display": "standalone",
@@ -21,7 +21,11 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["health", "fitness", "lifestyle"],
+  "categories": [
+    "health",
+    "fitness",
+    "lifestyle"
+  ],
   "screenshots": [
     {
       "src": "/assets/screenshot-1.png",

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <div id="hash"></div>
+    <script>
+        async function hash() {
+            const msgBuffer = new TextEncoder().encode('DaniCoche');
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            document.getElementById('hash').innerText = hashHex;
+        }
+        hash();
+    </script>
+</body>
+
+</html>

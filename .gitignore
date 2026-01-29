@@ -1,0 +1,9 @@
+node_modules/
+.vscode/
+build-log.txt
+hash.txt
+pin.txt
+*.log
+dist/
+build/
+.DS_Store

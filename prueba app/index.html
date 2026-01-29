@@ -451,7 +451,7 @@
     <script type="text/babel">
         // --- COMPONENTS ---
 
-        const CalorieTracker = ({ user, target = 2000 }) => {
+        const CalorieTracker = React.memo(({ user, target = 2000 }) => {
             const [calories, setCalories] = React.useState(0);
             const [steps, setSteps] = React.useState(0);
             const [burned, setBurned] = React.useState(0);
@@ -482,6 +482,45 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             };
+
+            // --- PEDOMETER LOGIC ---
+            const accumulatedStepsRef = React.useRef(0);
+            const lastPedometerValRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (!window.pedometer) {
+                    console.log("Pedometer plugin not found (Web Mode?)");
+                    return;
+                }
+
+                console.log("Starting Pedometer Service...");
+                const successHandler = (data) => {
+                    // data.numberOfSteps is total since boot
+                    if (lastPedometerValRef.current === null) {
+                        lastPedometerValRef.current = data.numberOfSteps;
+                        return;
+                    }
+
+                    const delta = data.numberOfSteps - lastPedometerValRef.current;
+                    if (delta > 0) {
+                        accumulatedStepsRef.current += delta;
+                        lastPedometerValRef.current = data.numberOfSteps;
+
+                        // Batch updates to DB every 50 steps
+                        if (accumulatedStepsRef.current >= 50) {
+                            const stepsToAdd = accumulatedStepsRef.current;
+                            updateDailyStat('steps', stepsToAdd);
+                            // Estimate: 0.04 kcal per step
+                            updateDailyStat('burned', stepsToAdd * 0.04);
+                            accumulatedStepsRef.current = 0;
+                            console.log(`Auto-logged ${stepsToAdd} steps`);
+                        }
+                    }
+                };
+
+                window.pedometer.startPedometerUpdates(successHandler, (err) => console.error("Pedometer Error:", err));
+            }, []);
+            // -----------------------
 
             // Ensure percentage is always between 0-100, starting from 0
             const percentage = Math.max(0, Math.min((calories / target) * 100, 100));
@@ -541,21 +580,77 @@
 
                     {/* 2. Activity Section (Cards) */}
                     <div className="grid grid-cols-2 gap-4 relative z-10">
-                        {/* Steps */}
-                        <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 hover:bg-blue-50 transition-colors group/card">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="p-2 bg-blue-100/50 rounded-lg text-blue-500 group-hover/card:bg-blue-500 group-hover/card:text-white transition-colors">
-                                    <i data-lucide="footprints" className="w-4 h-4"></i>
+                        {/* Steps - Circular Progress */}
+                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-2xl border border-blue-100 hover:shadow-lg transition-all group/card relative overflow-hidden">
+                            {/* Background decoration */}
+                            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-200/20 rounded-full blur-2xl"></div>
+
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="p-1.5 bg-blue-500 rounded-lg text-white">
+                                        <i data-lucide="footprints" className="w-3.5 h-3.5"></i>
+                                    </div>
+                                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Pasos Hoy</span>
                                 </div>
-                                <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">Pasos</span>
-                            </div>
-                            <div className="flex items-end gap-1 mb-3">
-                                <div className="text-2xl font-black text-blue-700 leading-none">{steps > 1000 ? (steps / 1000).toFixed(1) + 'k' : steps}</div>
-                                <div className="text-[10px] text-blue-400 font-bold mb-0.5">/ 10k</div>
-                            </div>
-                            <div className="flex gap-1.5">
-                                <button onClick={() => { updateDailyStat('steps', 500); updateDailyStat('burned', 20); }} className="flex-1 bg-white shadow-sm border border-blue-100 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white transition-all">+500</button>
-                                <button onClick={() => { updateDailyStat('steps', 1000); updateDailyStat('burned', 40); }} className="flex-1 bg-white shadow-sm border border-blue-100 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white transition-all">+1k</button>
+
+                                {/* Circular Progress */}
+                                <div className="flex items-center justify-center mb-4">
+                                    <div className="relative w-28 h-28">
+                                        {/* Background circle */}
+                                        <svg className="w-full h-full transform -rotate-90">
+                                            <circle
+                                                cx="56"
+                                                cy="56"
+                                                r="50"
+                                                stroke="currentColor"
+                                                strokeWidth="8"
+                                                fill="none"
+                                                className="text-blue-100"
+                                            />
+                                            {/* Progress circle */}
+                                            <circle
+                                                cx="56"
+                                                cy="56"
+                                                r="50"
+                                                stroke="url(#stepGradient)"
+                                                strokeWidth="8"
+                                                fill="none"
+                                                strokeLinecap="round"
+                                                strokeDasharray={`${2 * Math.PI * 50}`}
+                                                strokeDashoffset={`${2 * Math.PI * 50 * (1 - Math.min(steps / 10000, 1))}`}
+                                                className="transition-all duration-1000 ease-out"
+                                            />
+                                            <defs>
+                                                <linearGradient id="stepGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                    <stop offset="0%" stopColor="#3B82F6" />
+                                                    <stop offset="100%" stopColor="#06B6D4" />
+                                                </linearGradient>
+                                            </defs>
+                                        </svg>
+                                        {/* Center text */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <div className="text-3xl font-black text-blue-700 leading-none">
+                                                {steps > 1000 ? (steps / 1000).toFixed(1) : steps}
+                                            </div>
+                                            <div className="text-[9px] text-blue-400 font-bold mt-0.5">
+                                                {steps > 1000 ? 'MIL' : 'pasos'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Goal text */}
+                                <div className="text-center mb-3">
+                                    <div className="text-[10px] text-blue-500 font-bold">
+                                        Meta: 10,000 • {Math.round((steps / 10000) * 100)}%
+                                    </div>
+                                </div>
+
+                                {/* Quick add buttons */}
+                                <div className="flex gap-1.5">
+                                    <button onClick={() => { updateDailyStat('steps', 500); updateDailyStat('burned', 20); }} className="flex-1 bg-white/80 backdrop-blur shadow-sm border border-blue-200 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all active:scale-95">+500</button>
+                                    <button onClick={() => { updateDailyStat('steps', 1000); updateDailyStat('burned', 40); }} className="flex-1 bg-white/80 backdrop-blur shadow-sm border border-blue-200 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all active:scale-95">+1k</button>
+                                </div>
                             </div>
                         </div>
 
@@ -571,16 +666,16 @@
                                 <div className="text-2xl font-black text-orange-600 leading-none">{Math.round(burned)}</div>
                             </div>
                             <div className="w-full bg-orange-200/50 h-1.5 rounded-full overflow-hidden">
-                                <div className="h-full bg-orange-500 w-1/2 rounded-full"></div>
+                                <div className="h-full bg-orange-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min((burned / 500) * 100, 100)}%` }}></div>
                                 {/* Just visual placeholder since this is auto-calculated */}
                             </div>
                         </div>
                     </div>
                 </div>
             );
-        };
+        });
 
-        const ProgressChart = ({ routineName, dataPoints }) => {
+        const ProgressChart = React.memo(({ routineName, dataPoints }) => {
             const chartRef = React.useRef(null);
             const chartInstanceRef = React.useRef(null);
 
@@ -664,7 +759,7 @@
                     </div>
                 </div>
             );
-        };
+        });
 
         // --- GAMIFICATION COMPONENTS ---
 
@@ -1002,7 +1097,7 @@
             );
         };
 
-        const ExerciseCard = ({ exercise, logs, userProfile, onUpdateSet, onAddSet, onRemoveSet, onOpenCalc, onOpenChart }) => {
+        const ExerciseCard = React.memo(({ exercise, logs, userProfile, onUpdateSet, onAddSet, onRemoveSet, onOpenCalc, onOpenChart, onEdit, onDelete }) => {
             const [isOpen, setIsOpen] = React.useState(false);
 
             // Calculate active volume (just for fun/display)
@@ -1018,7 +1113,14 @@
             return (
                 <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden transition-all duration-300 hover:shadow-md mb-4 group">
                     {/* Header */}
-                    <div onClick={() => setIsOpen(!isOpen)} className="p-6 flex gap-4 items-center cursor-pointer hover:bg-stone-50/50 transition-colors">
+                    <div onClick={() => setIsOpen(!isOpen)} className="p-6 flex gap-4 items-center cursor-pointer hover:bg-stone-50/50 transition-colors relative">
+                        {/* Settings Button (Cog) */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(exercise); }}
+                            className="absolute top-2 right-2 p-2 text-stone-300 hover:text-stone-500 rounded-full hover:bg-stone-100 transition-colors z-[30]"
+                        >
+                            <i data-lucide="settings-2" className="w-4 h-4"></i>
+                        </button>
                         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-stone-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
                             <img src={exercise.img} alt={exercise.name} className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100" />
                         </div>
@@ -1148,7 +1250,7 @@
                     </div>
                 </div >
             );
-        };
+        });
 
         const RestTimer = ({ initialTime, isActive, onComplete, onCancel }) => {
             const [timeLeft, setTimeLeft] = React.useState(initialTime);
@@ -1190,6 +1292,7 @@
         const Login = ({ onLogin }) => {
             const [email, setEmail] = React.useState('');
             const [password, setPassword] = React.useState('');
+            const [nickname, setNickname] = React.useState(''); // New Nickname State
             const [isRegistering, setIsRegistering] = React.useState(false);
             const [error, setError] = React.useState('');
             const [loading, setLoading] = React.useState(false);
@@ -1201,23 +1304,65 @@
 
                 try {
                     if (isRegistering) {
+                        // Validate Nickname
+                        if (!nickname || nickname.length < 3) {
+                            throw new Error("El nickname debe tener al menos 3 caracteres.");
+                        }
+                        const cleanNick = nickname.toLowerCase().replace(/\s/g, '');
+                        if (cleanNick !== nickname.toLowerCase()) {
+                            throw new Error("El nickname no puede tener espacios.");
+                        }
+
+                        // Check Uniqueness
+                        const nickDoc = await db.collection('usernames').doc(cleanNick).get();
+                        if (nickDoc.exists) {
+                            throw new Error("Este nickname ya está en uso. Elige otro.");
+                        }
+
                         // Register Flow
                         const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
                         const user = userCredential.user;
 
-                        // Add to "pending_users" for Admin approval
-                        await db.collection('pending_users').doc(user.uid).set({
+                        // Set Display Name (Nickname)
+                        await user.updateProfile({ displayName: nickname });
+
+                        // Reserve Nickname & Create User Docs
+                        const batch = db.batch();
+
+                        // 1. Reserve Nickname
+                        const nickRef = db.collection('usernames').doc(cleanNick);
+                        batch.set(nickRef, { uid: user.uid, original: nickname });
+
+                        // 2. Pending User (still good for admin visibility, even if no gate)
+                        const pendingRef = db.collection('pending_users').doc(user.uid);
+                        batch.set(pendingRef, {
                             email: user.email,
                             uid: user.uid,
+                            nickname: nickname,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
+
+                        // 3. users_public (for social search)
+                        const safeEmail = user.email.replace(/\./g, '_');
+                        const publicRef = db.collection('users_public').doc(safeEmail);
+                        batch.set(publicRef, {
+                            uid: user.uid,
+                            email: user.email,
+                            nickname: nickname,
+                            name: nickname, // Use nickname as display name
+                            level: 0,
+                            photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+                        });
+
+                        await batch.commit();
 
                         // Notify n8n (Registration Webhook) - ULTIMATE TEST: GET REQUEST
                         try {
                             const params = new URLSearchParams({
                                 event: 'new_registration',
                                 email: user.email,
-                                userId: user.uid
+                                userId: user.uid,
+                                nickname: nickname
                             });
                             // Using GET + no-cors is virtually impossible to block
                             await fetch(`https://danitorre.app.n8n.cloud/webhook-test/firebase-events?${params.toString()}`, {
@@ -1265,6 +1410,20 @@
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            {isRegistering && (
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Nickname (Único)</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={nickname}
+                                        onChange={(e) => setNickname(e.target.value)}
+                                        placeholder="TuApodoFitness"
+                                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-medium"
+                                    />
+                                    <p className="text-[10px] text-gray-400 mt-1 ml-1">Sin espacios. Será tu nombre público.</p>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
                                 <input
@@ -1452,6 +1611,10 @@
                 return () => chart.destroy();
             }, [exerciseId, logs]);
 
+            React.useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
@@ -1471,6 +1634,10 @@
             const [selectedIcon, setSelectedIcon] = React.useState('dumbbell');
             const [selectedColor, setSelectedColor] = React.useState('red');
             const [loading, setLoading] = React.useState(false);
+
+            React.useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
 
             const icons = [
                 { id: 'dumbbell', label: 'Pesas' },
@@ -1583,20 +1750,89 @@
             );
         };
 
-        const RoutineSelector = ({ activeRoutine, setActiveRoutine, user, onCreateRoutine }) => {
-            const [customRoutines, setCustomRoutines] = React.useState([]);
+        const EditExerciseModal = ({ exercise, onClose, onSave, onDelete }) => {
+            const [name, setName] = React.useState(exercise.name);
+            const [img, setImg] = React.useState(exercise.img);
+            const [loading, setLoading] = React.useState(false);
 
-            // Fetch custom routines from Firestore
             React.useEffect(() => {
-                if (!user) return;
+                if (window.lucide) window.lucide.createIcons();
+            });
 
-                const unsubscribe = db.collection('users').doc(user.uid).collection('routines').onSnapshot(snapshot => {
-                    const routines = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setCustomRoutines(routines);
-                });
+            const handleSave = async () => {
+                setLoading(true);
+                await onSave(exercise.id, { name, img });
+                setLoading(false);
+                onClose();
+            };
 
-                return () => unsubscribe();
-            }, [user]);
+            const handleDelete = async () => {
+                if (!window.confirm("¿Seguro que quieres borrar este ejercicio? Se perderá el historial de registros.")) return;
+                setLoading(true);
+                await onDelete(exercise.id);
+                setLoading(false);
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
+
+                        <h3 className="text-xl font-black mb-6 text-gray-900">Editar Ejercicio</h3>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre</label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 font-bold"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Imagen URL (Opcional)</label>
+                                <input
+                                    type="text"
+                                    value={img}
+                                    onChange={(e) => setImg(e.target.value)}
+                                    placeholder="https://..."
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs"
+                                />
+                            </div>
+
+                            {img && (
+                                <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                    <img src={img} alt="Preview" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={loading}
+                                    className="flex-1 py-3 bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <i data-lucide="trash-2" className="w-4 h-4"></i> Borrar
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={loading}
+                                    className="flex-1 py-3 bg-primary-600 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30 hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {loading ? <i data-lucide="loader-2" className="w-4 h-4 animate-spin"></i> : 'Guardar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const RoutineSelector = React.memo(({ activeRoutine, setActiveRoutine, customRoutines, onCreateRoutine, favorites = [] }) => {
+            // Internal fetch removed to ensure sync with Dashboard
 
             const baseRoutines = [
                 { id: 'push', name: 'Pecho / Tríceps', icon: 'zap', color: 'red', isBase: true },
@@ -1605,6 +1841,17 @@
             ];
 
             const allRoutines = [...baseRoutines, ...customRoutines];
+
+            // Sort: Favorites first, then base, then custom
+            const sortedRoutines = React.useMemo(() => {
+                return [...allRoutines].sort((a, b) => {
+                    const isFavA = favorites.includes(a.id);
+                    const isFavB = favorites.includes(b.id);
+                    if (isFavA && !isFavB) return -1;
+                    if (!isFavA && isFavB) return 1;
+                    return 0; // Keep original order otherwise
+                });
+            }, [allRoutines, favorites]);
 
             const getColorClasses = (color, isActive) => {
                 const colorMap = {
@@ -1622,18 +1869,20 @@
 
             return (
                 <div className="flex gap-3 overflow-x-auto no-scrollbar mb-8 pb-2 px-1">
-                    {allRoutines.map(routine => {
+                    {sortedRoutines.map(routine => {
                         const isActive = activeRoutine === routine.id;
+                        const isFav = favorites.includes(routine.id);
                         const colorClasses = getColorClasses(routine.color || 'red', isActive);
                         return (
                             <button
                                 key={routine.id}
                                 onClick={() => setActiveRoutine(routine.id)}
-                                className={`flex-shrink-0 px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${isActive
+                                className={`flex-shrink-0 px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2 relative group ${isActive
                                     ? `bg-gradient-to-r ${colorClasses} text-white shadow-lg transform scale-[1.02] ring-2 ring-primary-100`
                                     : `bg-white text-gray-500 border ${colorClasses} hover:border-gray-200`
                                     }`}
                             >
+                                {isFav && <i data-lucide="star" className={`w-3 h-3 absolute top-1 right-1 fill-yellow-400 text-yellow-500 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}></i>}
                                 {routine.icon && <i data-lucide={routine.icon} className={`w-4 h-4 ${isActive ? 'text-white' : 'text-primary-500'}`}></i>}
                                 {routine.name}
                             </button>
@@ -1650,7 +1899,8 @@
                     </button>
                 </div>
             );
-        };
+        });
+
 
         // --- MAIN APP (Authenticated) ---
 
@@ -1715,6 +1965,7 @@
 
         const UserProfileModal = ({ user, onClose, onSave, initialData }) => {
             const [formData, setFormData] = React.useState({
+                nickname: initialData?.nickname || user.displayName || '',
                 weight: initialData?.weight || '',
                 height: initialData?.height || '',
                 birthDate: initialData?.birthDate || '',
@@ -1725,8 +1976,15 @@
                 goal: initialData?.goal || 'maintain'
             });
             const [loading, setLoading] = React.useState(false);
+            const [nickError, setNickError] = React.useState('');
+
+            React.useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
 
             const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+            // Validate formats and uniqueness on save
 
             const calculateAge = (birthDateString) => {
                 if (!birthDateString) return 25;
@@ -1743,9 +2001,32 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setLoading(true);
-                try {
-                    const age = calculateAge(formData.birthDate);
+                setNickError('');
 
+                try {
+                    const cleanNick = formData.nickname.trim();
+                    const oldNick = initialData?.nickname || user.displayName;
+                    let nicknameChanged = false;
+
+                    // 1. Validate Nickname Change
+                    if (cleanNick !== oldNick) {
+                        nicknameChanged = true;
+                        if (cleanNick.length < 3) throw new Error("Nickname muy corto (min 3).");
+                        if (/\s/.test(cleanNick)) throw new Error("El nickname no puede tener espacios.");
+
+                        // Check availability
+                        const lowNick = cleanNick.toLowerCase();
+                        const checkDoc = await db.collection('usernames').doc(lowNick).get();
+
+                        // If it exists, check if it's OURS (e.g. case change only) or someone else's
+                        if (checkDoc.exists) {
+                            if (checkDoc.data().uid !== user.uid) {
+                                throw new Error("Este nickname ya está ocupado.");
+                            }
+                        }
+                    }
+
+                    const age = calculateAge(formData.birthDate);
 
                     const tdee = calculateTDEE(
                         parseFloat(formData.weight),
@@ -1759,19 +2040,65 @@
                     );
 
                     const profileData = {
-                        ...formData,
+                        ...formData, // includes nickname
+                        nickname: cleanNick,
                         age,
                         tdee,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
-                    await db.collection('users').doc(user.uid).collection('profile').doc('main').set(profileData);
+                    const batch = db.batch();
+
+                    // Main Profile Update
+                    const profileRef = db.collection('users').doc(user.uid).collection('profile').doc('main');
+                    batch.set(profileRef, profileData);
+
+                    // Handle Nickname Updates
+                    if (nicknameChanged) {
+                        const lowNick = cleanNick.toLowerCase();
+
+                        // Reserve new
+                        batch.set(db.collection('usernames').doc(lowNick), { uid: user.uid, original: cleanNick });
+
+                        // Release old (if existed)
+                        if (oldNick) {
+                            const oldLow = oldNick.toLowerCase();
+                            if (oldLow !== lowNick) {
+                                batch.delete(db.collection('usernames').doc(oldLow));
+                            }
+                        }
+
+                        // Update Public Profile
+                        const safeEmail = user.email.replace(/\./g, '_');
+                        batch.update(db.collection('users_public').doc(safeEmail), {
+                            nickname: cleanNick,
+                            name: cleanNick // Update name as well
+                        });
+
+                        // Update Firebase Auth Profile (async, non-blocking for batch)
+                        user.updateProfile({ displayName: cleanNick });
+                    } else if (!initialData) {
+                        // Case: First save, nickname didn't change (still same as registered/default)
+                        const safeEmail = user.email.replace(/\./g, '_');
+                        // Just in case public profile needs refresh
+                        batch.set(db.collection('users_public').doc(safeEmail), {
+                            nickname: cleanNick,
+                            name: cleanNick
+                        }, { merge: true });
+                    }
+
+                    await batch.commit();
                     onSave(profileData);
                 } catch (error) {
                     console.error(error);
-                    alert("Error al guardar perfil");
+                    if (error.message.includes("nickname") || error.message.includes("Nickname")) {
+                        setNickError(error.message);
+                    } else {
+                        alert("Error al guardar perfil: " + error.message);
+                    }
+                } finally {
+                    setLoading(false);
                 }
-                setLoading(false);
             };
 
             return (
@@ -1784,6 +2111,21 @@
                         <p className="text-sm text-gray-500 mb-6">Necesitamos estos datos para calcular tus calorías.</p>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* Nickname Input */}
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Nickname (Único)</label>
+                                <input
+                                    name="nickname"
+                                    type="text"
+                                    value={formData.nickname}
+                                    onChange={handleChange}
+                                    className={`w-full p-3 bg-gray-50 rounded-xl font-bold border-2 ${nickError ? 'border-red-500 bg-red-50' : 'border-transparent focus:border-primary-500'}`}
+                                    placeholder="Tu Apodo"
+                                    required
+                                />
+                                {nickError && <p className="text-xs text-red-500 font-bold mt-1">{nickError}</p>}
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Peso (kg)</label>
@@ -2090,75 +2432,144 @@
 
         const AdminPanel = ({ user, onClose }) => {
             const [pin, setPin] = React.useState('');
-            const [users, setUsers] = React.useState([]);
+            const [pendingUsers, setPendingUsers] = React.useState([]);
+            const [activeUsers, setActiveUsers] = React.useState([]);
+            const [activeTab, setActiveTab] = React.useState('pending'); // 'pending' | 'active'
+            const [searchTerm, setSearchTerm] = React.useState('');
             const [loading, setLoading] = React.useState(false);
-            const [status, setStatus] = React.useState(null); // { type: 'success' | 'error', message: '' }
-            const [customUserId, setCustomUserId] = React.useState('');
+            const [status, setStatus] = React.useState(null);
 
-            // Load Pending Users from Firestore
+            // Load Pending Users
             React.useEffect(() => {
                 const unsubscribe = db.collection('pending_users').onSnapshot(snapshot => {
-                    const pending = [];
-                    snapshot.forEach(doc => {
-                        pending.push({ id: doc.id, ...doc.data() });
-                    });
-                    setUsers(pending);
-                }, err => {
-                    console.log("Error or Missing Index for pending_users sort:", err);
+                    setPendingUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 });
                 return () => unsubscribe();
             }, []);
 
-            const handleVerify = async (action, userId) => {
-                if (!pin) {
-                    setStatus({ type: 'error', message: 'Introduce el PIN de verificación' });
-                    return;
-                }
+            // Load Active Users
+            React.useEffect(() => {
+                const unsubscribe = db.collection('users_public').onSnapshot(snapshot => {
+                    setActiveUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                });
+                return () => unsubscribe();
+            }, []);
 
+            React.useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+
+            const verifyPin = async (inputPin) => {
+                if (!inputPin) return false;
+                // Client-side Secure Hash Check (SHA-256 for "DaniCoche")
+                const msgBuffer = new TextEncoder().encode(inputPin);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                const validHash = "90cf92286aff0ec54631cc6c77647cdb022e8716ea736859e9f2710a7cedf5f1";
+                return hashHex === validHash;
+            };
+
+            const handleVerify = async (action, userId) => {
                 setLoading(true);
                 setStatus(null);
-
-                const payload = {
-                    action,
-                    userId,
-                    verificationPin: pin,
-                    adminEmail: user.email
-                };
-
                 try {
-                    const response = await fetch('https://danitorre.app.n8n.cloud/webhook-test/login-validation', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        setStatus({ type: 'success', message: data.message || `Usuario ${action === 'approve' ? 'aprobado' : 'rechazado'} correctamente` });
+                    if (await verifyPin(pin)) {
                         if (action === 'approve' || action === 'reject') {
-                            // Cleanup pending user
                             await db.collection('pending_users').doc(userId).delete();
+                            setStatus({ type: 'success', message: `Usuario ${action === 'approve' ? 'aprobado' : 'rechazado'}` });
                         }
-                    } else if (response.status === 401) {
-                        setStatus({ type: 'error', message: data.error || 'PIN incorrecto' });
-                    } else if (response.status === 404) {
-                        setStatus({ type: 'error', message: data.error || 'Usuario no encontrado' });
                     } else {
-                        setStatus({ type: 'error', message: 'Error desconocido' });
+                        setStatus({ type: 'error', message: 'PIN incorrecto' });
                     }
-
                 } catch (error) {
-                    console.error("Webhook error:", error);
-                    setStatus({ type: 'error', message: 'Error de conexión con n8n' });
+                    setStatus({ type: 'error', message: error.message });
                 } finally {
                     setLoading(false);
                 }
             };
 
+            const handleDeleteUser = async (targetUser) => {
+                if (!window.confirm(`¿Seguro que quieres borrar a ${targetUser.name || targetUser.email}? Esta acción no se puede deshacer.`)) return;
+
+                setLoading(true);
+                setStatus(null);
+                try {
+                    if (await verifyPin(pin)) {
+                        setStatus({ type: 'success', message: 'Limpiando datos...' });
+
+                        // --- DEEP CLEAN START ---
+                        const subcollections = ['profile', 'stats', 'logs', 'settings', 'daily', 'inbox', 'friends', 'routines'];
+
+                        for (const subCol of subcollections) {
+                            const ref = db.collection('users').doc(targetUser.uid).collection(subCol);
+                            const snapshot = await ref.get();
+
+                            if (!snapshot.empty) {
+                                // Delete in chunks of 400 to be safe
+                                const chunkParams = 400;
+                                let paramsCount = 0;
+                                let batch = db.batch();
+
+                                for (const doc of snapshot.docs) {
+                                    batch.delete(ref.doc(doc.id));
+                                    paramsCount++;
+
+                                    if (paramsCount >= chunkParams) {
+                                        await batch.commit();
+                                        batch = db.batch();
+                                        paramsCount = 0;
+                                    }
+                                }
+                                if (paramsCount > 0) await batch.commit();
+                            }
+                        }
+                        // --- DEEP CLEAN END ---
+
+                        const batch = db.batch();
+
+                        // 1. Delete Public Profile
+                        batch.delete(db.collection('users_public').doc(targetUser.id));
+
+                        // 2. Delete Username Reservation (if exists)
+                        if (targetUser.nickname) {
+                            batch.delete(db.collection('usernames').doc(targetUser.nickname.toLowerCase()));
+                        }
+
+                        // 3. Delete Main Profile (Redundant given deep clean, but keeps atomic guarantee)
+                        batch.delete(db.collection('users').doc(targetUser.uid).collection('profile').doc('main'));
+
+                        // 3.5 Delete User Document Itself (The "Ghost" Parent)
+                        batch.delete(db.collection('users').doc(targetUser.uid));
+
+                        // 4. Cleanup Pending
+                        batch.delete(db.collection('pending_users').doc(targetUser.uid));
+
+                        await batch.commit();
+                        setStatus({ type: 'success', message: 'Usuario y sus datos eliminados correctamente' });
+                    } else {
+                        setStatus({ type: 'error', message: 'PIN incorrecto' });
+                    }
+                } catch (error) {
+                    console.error(error);
+                    setStatus({ type: 'error', message: 'Error al eliminar usuario' });
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Filter Active Users
+            const filteredActive = activeUsers.filter(u => {
+                const term = searchTerm.toLowerCase();
+                return (u.name && u.name.toLowerCase().includes(term)) ||
+                    (u.email && u.email.toLowerCase().includes(term)) ||
+                    (u.nickname && u.nickname.toLowerCase().includes(term)) ||
+                    (u.uid && u.uid.includes(term));
+            });
+
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-                    <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i data-lucide="x" className="w-5 h-5"></i></button>
 
                         <div className="flex items-center gap-3 mb-6">
@@ -2167,89 +2578,305 @@
                             </div>
                             <div>
                                 <h3 className="text-xl font-black text-gray-900">Panel Admin</h3>
-                                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Verificación de Usuarios</p>
+                                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Gestión Total</p>
                             </div>
                         </div>
 
                         {/* PIN Input */}
-                        <div className="mb-6 bg-purple-50 p-4 rounded-xl border border-purple-100">
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">PIN Administrador</label>
+                        <div className="mb-4 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">PIN Maestro</label>
                             <input
                                 type="password"
                                 value={pin}
                                 onChange={e => setPin(e.target.value)}
                                 placeholder="Introduce PIN..."
-                                className="w-full p-3 bg-white border border-gray-200 rounded-xl font-black text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                className="w-full px-4 py-2 bg-white rounded-lg border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-black tracking-widest"
                             />
                         </div>
 
-                        {/* Status Message */}
                         {status && (
-                            <div className={`mb-4 p-4 rounded-xl text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                <i data-lucide={status.type === 'success' ? 'check-circle' : 'alert-circle'} className="w-5 h-5"></i>
+                            <div className={`mb-4 p-3 rounded-xl text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                <i data-lucide={status.type === 'success' ? 'check-circle' : 'alert-circle'} className="w-4 h-4"></i>
                                 {status.message}
                             </div>
                         )}
 
-                        {/* Pending Users List */}
-                        <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
-                            <h4 className="text-sm font-bold text-gray-800 border-b pb-2">Pendientes</h4>
+                        {/* Tabs */}
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                onClick={() => setActiveTab('pending')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'pending' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                            >
+                                Pendientes ({pendingUsers.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('active')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'active' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                            >
+                                Activos ({activeUsers.length})
+                            </button>
+                        </div>
 
-                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col gap-2">
-                                <input
-                                    type="text"
-                                    value={customUserId}
-                                    onChange={e => setCustomUserId(e.target.value)}
-                                    placeholder="ID de Usuario Manual..."
-                                    className="w-full text-xs p-2 bg-white rounded-lg border border-gray-200"
-                                />
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleVerify('approve', customUserId)}
-                                        disabled={loading || !customUserId}
-                                        className="flex-1 bg-green-500 text-white text-xs font-bold py-2 rounded-lg hover:bg-green-600 disabled:opacity-50"
-                                    >
-                                        Aprobar ID
-                                    </button>
-                                    <button
-                                        onClick={() => handleVerify('reject', customUserId)}
-                                        disabled={loading || !customUserId}
-                                        className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
-                                    >
-                                        Rechazar ID
-                                    </button>
+                        <div className="flex-1 overflow-y-auto">
+                            {activeTab === 'pending' ? (
+                                <div className="space-y-2">
+                                    {pendingUsers.length === 0 ? <p className="text-center text-gray-400 text-sm py-4">No hay solicitudes pendientes.</p> :
+                                        pendingUsers.map(u => (
+                                            <div key={u.id} className="bg-gray-50 p-3 rounded-xl flex items-center justify-between border border-gray-100">
+                                                <div className="overflow-hidden">
+                                                    <p className="font-bold text-gray-900 text-sm truncate">{u.email}</p>
+                                                    <p className="text-xs text-gray-400 font-mono truncate">{u.uid}</p>
+                                                    {u.nickname && <p className="text-xs text-purple-500 font-bold">@{u.nickname}</p>}
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => handleVerify('approve', u.id)} className="p-2 bg-green-100 text-green-600 rounded-lg"><i data-lucide="check" className="w-4 h-4"></i></button>
+                                                    <button onClick={() => handleVerify('reject', u.id)} className="p-2 bg-red-100 text-red-600 rounded-lg"><i data-lucide="x" className="w-4 h-4"></i></button>
+                                                </div>
+                                            </div>
+                                        ))}
                                 </div>
-                            </div>
-
-                            {users.map(u => (
-                                <div key={u.id} className="bg-white border border-gray-100 p-3 rounded-xl shadow-sm flex items-center justify-between">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-gray-800">{u.name}</span>
-                                        <span className="text-[10px] text-gray-400">{u.email}</span>
-                                        <span className="text-[9px] text-gray-300 font-mono">{u.id}</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleVerify('approve', u.id)}
-                                            disabled={loading}
-                                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                                            title="Aprobar"
-                                        >
-                                            <i data-lucide="check" className="w-4 h-4"></i>
-                                        </button>
-                                        <button
-                                            onClick={() => handleVerify('reject', u.id)}
-                                            disabled={loading}
-                                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                                            title="Rechazar"
-                                        >
-                                            <i data-lucide="x" className="w-4 h-4"></i>
-                                        </button>
-                                    </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        placeholder="Buscar por email, nombre, ID..."
+                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2 sticky top-0"
+                                    />
+                                    {filteredActive.map(u => (
+                                        <div key={u.id} className="bg-white border border-gray-100 p-3 rounded-xl shadow-sm">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <img src={u.photo} className="w-8 h-8 rounded-full bg-gray-100" />
+                                                <div className="overflow-hidden">
+                                                    <h4 className="font-bold text-gray-900 text-sm truncate">{u.name || 'Usuario'}</h4>
+                                                    <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                                                    {u.nickname && <p className="text-xs text-purple-500 font-bold">@{u.nickname}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center border-t border-gray-50 pt-2">
+                                                <span className="text-[10px] text-gray-400 font-mono tracking-tighter truncate max-w-[100px]">{u.uid}</span>
+                                                <button
+                                                    onClick={() => handleDeleteUser(u)}
+                                                    className="px-3 py-1 bg-red-50 text-red-500 text-xs font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
+                                                >
+                                                    <i data-lucide="trash-2" className="w-3 h-3"></i> Borrar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
+                </div>
+            );
+        };
+
+
+        // Social Panel Component
+        const SocialPanel = ({ user, userProfile }) => {
+            const [activeTab, setActiveTab] = React.useState('friends');
+            const [friends, setFriends] = React.useState([]);
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [searchResults, setSearchResults] = React.useState([]);
+            const [loading, setLoading] = React.useState(false);
+
+            // Fetch Friends
+            React.useEffect(() => {
+                const unsubscribe = db.collection('users').doc(user.uid).collection('friends')
+                    .orderBy('addedAt', 'desc')
+                    .onSnapshot(snapshot => {
+                        const friendsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setFriends(friendsList);
+                    });
+                return () => unsubscribe();
+            }, [user.uid]);
+
+            const handleSearch = async (e) => {
+                e.preventDefault();
+                if (!searchTerm || searchTerm.length < 3) return;
+
+                setLoading(true);
+                try {
+                    let foundDoc = null;
+
+                    if (searchTerm.includes('@')) {
+                        // Email Search
+                        const safeEmail = searchTerm.toLowerCase().replace(/\./g, '_');
+                        const doc = await db.collection('users_public').doc(safeEmail).get();
+                        if (doc.exists) foundDoc = { id: doc.id, ...doc.data() };
+                    } else {
+                        // Nickname Search
+                        const lowNick = searchTerm.trim().toLowerCase();
+                        // 1. Check usernames registry
+                        const nickDoc = await db.collection('usernames').doc(lowNick).get();
+
+                        if (nickDoc.exists) {
+                            const { uid } = nickDoc.data();
+                            // 2. Lookup Public Profile by UID
+                            const querySnap = await db.collection('users_public').where('uid', '==', uid).get();
+                            if (!querySnap.empty) {
+                                const doc = querySnap.docs[0];
+                                foundDoc = { id: doc.id, ...doc.data() };
+                            }
+                        }
+                    }
+
+                    if (foundDoc) {
+                        setSearchResults([foundDoc]);
+                    } else {
+                        setSearchResults([]);
+                    }
+                } catch (error) {
+                    console.error("Error searching:", error);
+                }
+                setLoading(false);
+            };
+
+            const addFriend = async (friendData) => {
+                try {
+                    // Add to my friends
+                    await db.collection('users').doc(user.uid).collection('friends').doc(friendData.uid).set({
+                        uid: friendData.uid,
+                        name: friendData.name || friendData.email.split('@')[0],
+                        email: friendData.email,
+                        photo: friendData.photo,
+                        lastWorkout: friendData.lastWorkout || null,
+                        addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    // Add me to their friends (Reciprocal)
+                    await db.collection('users').doc(friendData.uid).collection('friends').doc(user.uid).set({
+                        uid: user.uid,
+                        name: userProfile?.name || user.email.split('@')[0],
+                        email: user.email,
+                        photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
+                        addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    alert("¡Amigo añadido!");
+                    setSearchTerm('');
+                    setSearchResults([]);
+                    setActiveTab('friends');
+                } catch (error) {
+                    console.error("Error adding friend:", error);
+                    alert("Error al añadir amigo");
+                }
+            };
+
+            const sendNudge = async (friendId, friendName) => {
+                try {
+                    await db.collection('users').doc(friendId).collection('inbox').add({
+                        type: 'nudge',
+                        fromUid: user.uid,
+                        fromName: userProfile?.name || user.email.split('@')[0],
+                        message: "¡A entrenar! 💪",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    });
+                    alert(`¡Has gritado a ${friendName}!`);
+                } catch (error) {
+                    console.error("Error sending nudge:", error);
+                }
+            };
+
+            return (
+                <div className="pb-20">
+                    <div className="flex gap-2 mb-6 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+                        <button
+                            onClick={() => setActiveTab('friends')}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'friends' ? 'bg-primary-50 text-primary-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                        >
+                            Mis Amigos
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('add')}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'add' ? 'bg-primary-50 text-primary-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                        >
+                            Añadir
+                        </button>
+                    </div>
+
+                    {activeTab === 'friends' && (
+                        <div className="space-y-3">
+                            {friends.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">
+                                    <i data-lucide="users" className="w-12 h-12 mx-auto mb-3 opacity-20"></i>
+                                    <p>No tienes amigos aún.</p>
+                                    <button onClick={() => setActiveTab('add')} className="mt-4 text-primary-600 font-bold text-sm">Buscar amigos</button>
+                                </div>
+                            ) : (
+                                friends.map(friend => (
+                                    <div key={friend.uid} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <img src={friend.photo} className="w-10 h-10 rounded-full bg-gray-100" />
+                                            <div>
+                                                <h4 className="font-bold text-gray-900">{friend.name}</h4>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-green-500 font-medium flex items-center gap-1">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Online
+                                                    </span>
+                                                    {friend.lastWorkout ? (
+                                                        <span className="text-[10px] text-gray-400 mt-0.5">
+                                                            Último: {new Date(friend.lastWorkout).toLocaleDateString()}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-300 mt-0.5">Sin actividad reciente</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => sendNudge(friend.uid, friend.name)}
+                                            className="w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
+                                        >
+                                            <i data-lucide="megaphone" className="w-5 h-5"></i>
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'add' && (
+                        <div className="space-y-6">
+                            <form onSubmit={handleSearch} className="relative">
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    placeholder="Email o Nickname..."
+                                    className="w-full pl-4 pr-12 py-3 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                                <button type="submit" className="absolute right-2 top-2 p-1.5 bg-primary-600 text-white rounded-lg">
+                                    <i data-lucide="search" className="w-4 h-4"></i>
+                                </button>
+                            </form>
+
+                            <div className="space-y-2">
+                                {loading && <div className="text-center p-4"><i data-lucide="loader-2" className="w-6 h-6 animate-spin mx-auto text-primary-500"></i></div>}
+
+                                {searchResults.map(result => (
+                                    <div key={result.uid} className="bg-white p-4 rounded-2xl shadow-lg border border-primary-100 flex items-center justify-between animate-fade-in">
+                                        <div className="flex items-center gap-3">
+                                            <img src={result.photo} className="w-12 h-12 rounded-full bg-gray-100" />
+                                            <div>
+                                                <h4 className="font-bold text-gray-900">{result.name}</h4>
+                                                <p className="text-xs text-gray-400">{result.email}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => addFriend(result)}
+                                            className="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-800"
+                                        >
+                                            Añadir
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -2260,6 +2887,73 @@
             const [showAddModal, setShowAddModal] = React.useState(false);
             const [showUserMenu, setShowUserMenu] = React.useState(false);
             const [showAdminPanel, setShowAdminPanel] = React.useState(false);
+            const [editExercise, setEditExercise] = React.useState(null);
+            const [favoriteRoutines, setFavoriteRoutines] = React.useState([]);
+
+            // Load Favorites
+            React.useEffect(() => {
+                const unsubscribe = db.collection('users').doc(user.uid).collection('profile').doc('settings')
+                    .onSnapshot(doc => {
+                        if (doc.exists) {
+                            setFavoriteRoutines(doc.data().favorites || []);
+                        }
+                    });
+                return () => unsubscribe();
+            }, [user.uid]);
+
+
+            // Exercise Management Handlers
+            const handleEditExercise = (exercise) => {
+                setEditExercise(exercise);
+            };
+
+            const handleToggleFavorite = async (routineId) => {
+                const isFav = favoriteRoutines.includes(routineId);
+                let newFavs;
+                if (isFav) {
+                    newFavs = favoriteRoutines.filter(id => id !== routineId);
+                } else {
+                    newFavs = [...favoriteRoutines, routineId];
+                }
+
+                await db.collection('users').doc(user.uid).collection('profile').doc('settings').set({
+                    favorites: newFavs
+                }, { merge: true });
+            };
+
+            const handleDeleteRoutine = async (routineId, routineName) => {
+                if (!window.confirm(`¿Borrar rutina "${routineName}"? Se perderá para siempre.`)) return;
+
+                try {
+                    await db.collection('users').doc(user.uid).collection('routines').doc(routineId).delete();
+                    setActiveRoutine('push'); // Reset to default
+                    alert("Rutina eliminada");
+                } catch (e) {
+                    console.error(e);
+                    alert("Error al borrar rutina");
+                }
+            };
+
+            const handleUpdateExercise = async (id, data) => {
+                try {
+                    await db.collection('exercises').doc(id).update(data);
+                    // The onSnapshot listener will automatically update the UI
+                } catch (error) {
+                    console.error("Error updating exercise:", error);
+                    alert("Error al actualizar el ejercicio");
+                }
+            };
+
+            const handleDeleteExercise = async (id) => {
+                try {
+                    await db.collection('exercises').doc(id).delete();
+                    // The onSnapshot listener will automatically update the UI
+                    // Note: We are keeping the logs for stats history
+                } catch (error) {
+                    console.error("Error deleting exercise:", error);
+                    alert("Error al borrar el ejercicio");
+                }
+            };
 
             // UI State
             const [searchTerm, setSearchTerm] = React.useState('');
@@ -2297,16 +2991,38 @@
             const [darkMode, setDarkMode] = React.useState(false);
             const [showCreateRoutineModal, setShowCreateRoutineModal] = React.useState(false);
 
+            const [customRoutines, setCustomRoutines] = React.useState([]);
+
+            const [notifications, setNotifications] = React.useState([]);
+
             // Fetch Data
             React.useEffect(() => {
-                // 1. Listen to Exercises
+                // Check and Create Public Profile (Self-healing for Social Features)
+                const checkPublicProfile = async () => {
+                    if (!user || !user.email) return;
+                    const safeEmail = user.email.replace(/\./g, '_');
+                    const pubDoc = await db.collection('users_public').doc(safeEmail).get();
+                    if (!pubDoc.exists) {
+                        console.log("Auto-creating public profile...");
+                        await db.collection('users_public').doc(safeEmail).set({
+                            uid: user.uid,
+                            email: user.email,
+                            name: user.email.split('@')[0],
+                            level: 0,
+                            photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+                        });
+                    }
+                };
+                checkPublicProfile();
+
+                // ... existing listeners ...
                 const unsubExercises = db.collection('exercises').onSnapshot(snapshot => {
                     const exData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setExercises(exData);
                     setLoading(false);
                 });
 
-                // 2. Listen to User Logs
+                // ... (Keep existing listeners 2, 3, 4, 5, 6) ...
                 const unsubLogs = db.collection('users').doc(user.uid).collection('logs').onSnapshot(snapshot => {
                     const logData = {};
                     snapshot.docs.forEach(doc => {
@@ -2315,47 +3031,52 @@
                     setLogs(logData);
                 });
 
-                // 3. Listen to User Profile
                 const unsubProfile = db.collection('users').doc(user.uid).collection('profile').doc('main').onSnapshot(doc => {
                     if (doc.exists) {
                         setUserProfile(doc.data());
                         setShowProfileModal(false);
                     } else {
-                        // If loaded and no profile, show modal
                         if (!loading) setShowProfileModal(true);
                     }
                 });
 
-                // 4. Listen to Gamification Stats
                 const unsubStats = db.collection('users').doc(user.uid).collection('stats').doc('gamification').onSnapshot(doc => {
                     if (doc.exists) {
                         setUserStats(doc.data());
                     } else {
-                        // Initialize stats if not exist
                         db.collection('users').doc(user.uid).collection('stats').doc('gamification').set({
-                            points: 0,
-                            level: 0,
-                            badges: [],
-                            streakDays: 0,
-                            totalWorkouts: 0,
-                            totalPRs: 0,
-                            lastWorkoutDate: null
+                            points: 0, level: 0, badges: [], streakDays: 0, totalWorkouts: 0, totalPRs: 0, lastWorkoutDate: null
                         });
                     }
                 });
 
-                // 5. Listen to Dark Mode Preferences
                 const unsubDarkMode = db.collection('users').doc(user.uid).collection('settings').doc('preferences').onSnapshot(doc => {
                     if (doc.exists && doc.data().darkMode !== undefined) {
                         const isDark = doc.data().darkMode;
                         setDarkMode(isDark);
-                        if (isDark) {
-                            document.body.classList.add('dark');
-                        } else {
-                            document.body.classList.remove('dark');
-                        }
+                        if (isDark) { document.body.classList.add('dark'); } else { document.body.classList.remove('dark'); }
                     }
                 });
+
+                const unsubRoutines = db.collection('users').doc(user.uid).collection('routines').onSnapshot(snapshot => {
+                    const routines = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setCustomRoutines(routines);
+                });
+
+                // 7. Listen to Inbox (Social Notifications)
+                const unsubInbox = db.collection('users').doc(user.uid).collection('inbox')
+                    .where('read', '==', false)
+                    .orderBy('createdAt', 'desc')
+                    .limit(5)
+                    .onSnapshot(snapshot => {
+                        const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setNotifications(notifs);
+
+                        // Auto-show toast for new messages
+                        if (notifs.length > 0) {
+                            // Logic to avoid spamming could be here, but simple for now
+                        }
+                    }, err => console.log("Inbox error (requires index likely):", err));
 
                 return () => {
                     unsubExercises();
@@ -2363,8 +3084,21 @@
                     unsubProfile();
                     unsubStats();
                     unsubDarkMode();
+                    unsubRoutines();
+                    unsubInbox();
                 };
             }, [user.uid]);
+
+            // ... (keep existing effects) ...
+
+            // Function to dismiss notification (mark as read)
+            const dismissNotification = async (notifId) => {
+                await db.collection('users').doc(user.uid).collection('inbox').doc(notifId).update({ read: true });
+            };
+
+            // ... (keep rest of data transformation) ...
+
+
 
             // Ensure modal shows if no profile found after initial load
             React.useEffect(() => {
@@ -2381,6 +3115,16 @@
                     pull: { name: "Espalda / Bíceps", stats: [6200, 6800, 6500, 7200], exercises: [] },
                     legs: { name: "Pierna Completa", stats: [8000, 8200, 9000, 9500], exercises: [] }
                 };
+
+                // Add Custom Routines to grouped object
+                customRoutines.forEach(r => {
+                    grouped[r.id] = {
+                        name: r.name,
+                        // Mock stats for chart for now, or calculate real volume history if possible
+                        stats: [0, 0, 0, 0],
+                        exercises: []
+                    };
+                });
 
                 exercises.forEach(ex => {
                     if (grouped[ex.routine]) {
@@ -2413,7 +3157,7 @@
                 });
 
                 return grouped;
-            }, [exercises, logs]);
+            }, [exercises, logs, customRoutines]);
 
             // --- ACTIONS ---
 
@@ -2488,6 +3232,16 @@
                         lastWorkoutDate: new Date().toISOString(),
                         totalWorkouts: firebase.firestore.FieldValue.increment(1)
                     });
+
+                    // Sync to Public Profile (Social)
+                    try {
+                        const safeEmail = user.email.replace(/\./g, '_');
+                        await db.collection('users_public').doc(safeEmail).set({
+                            lastWorkout: new Date().toISOString()
+                        }, { merge: true });
+                    } catch (err) {
+                        console.log("Social sync error (non-critical):", err);
+                    }
 
                     // Award streak points
                     const streakBonus = newStreak >= 7 ? 15 : 10;
@@ -2747,10 +3501,32 @@
                 if (window.lucide) window.lucide.createIcons();
             }, [activeTab, activeRoutine, routinesData, plateCalc.isOpen, chartModal.isOpen, showBadgesModal]);
 
-            const currentData = routinesData[activeRoutine];
+            const currentData = routinesData[activeRoutine] || { name: 'Cargando...', stats: [], exercises: [] };
 
             return (
                 <div className="min-h-screen pb-24 bg-gray-50 font-sans">
+                    {/* Notifications Banner */}
+                    <div className="fixed top-20 left-4 right-4 z-[55] space-y-2 pointer-events-none">
+                        {notifications.map(notif => (
+                            <div key={notif.id} className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border-l-4 border-primary-500 animate-slide-in pointer-events-auto flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                                        <i data-lucide={notif.type === 'nudge' ? 'megaphone' : 'bell'} className="w-5 h-5 text-primary-600"></i>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-sm">
+                                            {notif.type === 'nudge' ? `${notif.fromName} te está gritando:` : 'Nueva notificación'}
+                                        </h4>
+                                        <p className="text-gray-600 text-xs">{notif.message}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => dismissNotification(notif.id)} className="p-2 hover:bg-gray-100 rounded-full">
+                                    <i data-lucide="x" className="w-4 h-4 text-gray-400"></i>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
                     {/* Offline Banner */}
                     {!isOnline && (
                         <div className="bg-yellow-500 text-white p-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-md animate-slide-up">
@@ -2763,7 +3539,9 @@
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-4">
                                 <div onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
-                                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Antigravity<span className="text-primary-500">.</span></h1>
+                                    <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                                        FitnessConDios <i data-lucide="dumbbell" className="w-6 h-6 text-primary-500 fill-primary-500"></i>
+                                    </h1>
                                     <p className="text-xs text-stone-500 font-medium">Hola, {user.email.split('@')[0]}</p>
                                 </div>
                                 <div className="shadow-[0_0_15px_rgba(234,179,8,0.15)] rounded-full">
@@ -2771,10 +3549,7 @@
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                {/* SEED BUTTON */}
-                                <button onClick={seedDatabase} className="hidden text-xs bg-gray-900 text-white px-3 py-1 rounded-full border border-gray-700 hover:bg-black">
-                                    DB
-                                </button>
+
                                 <div className="relative">
                                     {/* Avatar Wrapper with Level Ring */}
                                     <div onClick={() => setShowUserMenu(!showUserMenu)} className="relative cursor-pointer group">
@@ -2818,14 +3593,34 @@
                                 <RoutineSelector
                                     activeRoutine={activeRoutine}
                                     setActiveRoutine={setActiveRoutine}
-                                    user={user}
+                                    customRoutines={customRoutines}
+                                    favorites={favoriteRoutines}
                                     onCreateRoutine={() => setShowCreateRoutineModal(true)}
                                 />
                                 <ProgressChart routineName={currentData.name} dataPoints={currentData.stats} />
 
                                 <div className="mt-8">
                                     <div className="flex justify-between items-end mb-4">
-                                        <h3 className="font-bold text-gray-800 text-lg">Rutina Actual</h3>
+                                        <div className="flex items-center gap-3">
+                                            <h3 className="font-bold text-gray-800 text-lg">{currentData.name}</h3>
+
+                                            {/* Routine Actions */}
+                                            <button
+                                                onClick={() => handleToggleFavorite(activeRoutine)}
+                                                className={`p-1.5 rounded-lg transition-colors ${favoriteRoutines.includes(activeRoutine) ? 'bg-yellow-50 text-yellow-500' : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'}`}
+                                            >
+                                                <i data-lucide="star" className={`w-5 h-5 ${favoriteRoutines.includes(activeRoutine) ? 'fill-yellow-500' : ''}`}></i>
+                                            </button>
+
+                                            {!['push', 'pull', 'legs'].includes(activeRoutine) && (
+                                                <button
+                                                    onClick={() => handleDeleteRoutine(activeRoutine, currentData.name)}
+                                                    className="p-1.5 rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                                >
+                                                    <i data-lucide="trash-2" className="w-5 h-5"></i>
+                                                </button>
+                                            )}
+                                        </div>
                                         <div className="flex gap-2">
                                             <button onClick={() => setShowAddModal(true)} className="text-xs bg-primary-50 text-primary-600 px-3 py-1 rounded-lg font-bold hover:bg-primary-100 transition-colors flex items-center gap-1">
                                                 <i data-lucide="plus" className="w-3 h-3"></i> Ejercicio
@@ -2866,6 +3661,7 @@
                                                         onRemoveSet={handleRemoveSet}
                                                         onOpenCalc={(w) => setPlateCalc({ isOpen: true, weight: w })}
                                                         onOpenChart={(id, name) => setChartModal({ isOpen: true, exerciseId: id, name })}
+                                                        onEdit={handleEditExercise}
                                                     />
                                                 ))
                                         )}
@@ -2873,6 +3669,11 @@
                                 </div>
                             </React.Fragment>
                         )}
+
+                        {activeTab === 'social' && (
+                            <SocialPanel user={user} userProfile={userProfile} />
+                        )}
+
                         {/* Calendar Tab */}
                         {activeTab === 'calendar' && (
                             <CalendarView user={user} />
@@ -2888,6 +3689,18 @@
                             <div className={`absolute -top-4 w-8 h-1 bg-gradient-to-r from-primary-500 to-primary-600 rounded-b-full shadow-lg shadow-primary-500/30 transition-all duration-300 ${activeTab === 'home' ? 'opacity-100' : 'opacity-0 translate-y-2'}`}></div>
                             <i data-lucide="home" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'home' ? 'fill-primary-50 stroke-primary-600' : ''}`}></i>
                             <span className={`text-[10px] font-bold transition-opacity duration-300 ${activeTab === 'home' ? 'opacity-100' : 'opacity-0 hidden'}`}>Inicio</span>
+                        </button>
+
+                        <button
+                            onClick={() => setActiveTab('social')}
+                            className={`relative flex flex-col items-center gap-1 transition-all duration-300 w-16 group ${activeTab === 'social' ? 'text-primary-600 -translate-y-2' : 'text-stone-400 hover:text-stone-600'}`}
+                        >
+                            <div className={`absolute -top-4 w-8 h-1 bg-gradient-to-r from-primary-500 to-primary-600 rounded-b-full shadow-lg shadow-primary-500/30 transition-all duration-300 ${activeTab === 'social' ? 'opacity-100' : 'opacity-0 translate-y-2'}`}></div>
+                            <div className="relative">
+                                <i data-lucide="users" className={`w-7 h-7 transition-all duration-300 ${activeTab === 'social' ? 'fill-primary-50 stroke-primary-600' : ''}`}></i>
+                                {notifications.length > 0 && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>}
+                            </div>
+                            <span className={`text-[10px] font-bold transition-opacity duration-300 ${activeTab === 'social' ? 'opacity-100' : 'opacity-0 hidden'}`}>Social</span>
                         </button>
 
                         <div className="relative -top-10">
@@ -2969,6 +3782,15 @@
                             onSave={() => setShowCreateRoutineModal(false)}
                         />
                     )}
+
+                    {editExercise && (
+                        <EditExerciseModal
+                            exercise={editExercise}
+                            onClose={() => setEditExercise(null)}
+                            onSave={handleUpdateExercise}
+                            onDelete={handleDeleteExercise}
+                        />
+                    )}
                 </div>
             );
         };
@@ -2978,40 +3800,19 @@
         const App = () => {
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
-            const [isPending, setIsPending] = React.useState(false); // New state for verification gate
+
+            React.useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
 
             React.useEffect(() => {
                 // Listen to Firebase Auth state
                 const unsubscribe = firebase.auth().onAuthStateChanged((u) => {
                     setUser(u);
-                    if (!u) {
-                        // User logged out, reset everything
-                        setLoading(false);
-                        setIsPending(false);
-                    }
-                    // Note: If user exists, we wait for the pending_users check below to stop loading
+                    setLoading(false);
                 });
                 return () => unsubscribe();
             }, []);
-
-            // Check if user is pending approval
-            React.useEffect(() => {
-                if (!user) {
-                    // If no user, we might have set loading=false in auth listener, but let's ensure consistency
-                    return;
-                }
-
-                const checkPending = db.collection('pending_users').doc(user.uid)
-                    .onSnapshot((doc) => {
-                        setIsPending(doc.exists);
-                        setLoading(false); // Now we know if we should show Dashboard or Gate
-                    }, (error) => {
-                        console.error("Error checking pending status:", error);
-                        setLoading(false); // Fallback to Dashboard if check fails (or block? Fallback allowed for better UX if offline)
-                    });
-
-                return () => checkPending();
-            }, [user]);
 
             const handleLogout = () => {
                 firebase.auth().signOut();
@@ -3029,11 +3830,6 @@
                 return <Login />;
             }
 
-            // --- VERIFICATION GATE ---
-            if (isPending) {
-                return <VerificationScreen user={user} />;
-            }
-
             return <Dashboard user={user} onLogout={handleLogout} />;
         };
 
@@ -3049,35 +3845,38 @@
                 setError('');
 
                 try {
-                    // Call Webhook to Approve Self
-                    const response = await fetch('https://danitorre.app.n8n.cloud/webhook-test/login-validation', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'approve',
-                            userId: user.uid,
-                            verificationPin: pin,
-                            adminEmail: user.email // Self-verifying
-                        })
-                    });
+                    // Client-side Secure Hash Check
+                    // Hash of "DaniCoche": 5898d25458140409c99661448880a13854eb05f0134f71a7d9715ec34b797f56
+                    const msgBuffer = new TextEncoder().encode(pin);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-                    const data = await response.json();
+                    const validHash = "5898d25458140409c99661448880a13854eb05f0134f71a7d9715ec34b797f56";
 
-                    if (response.ok) {
-                        // Cleanup happens via webhook or Admin logic, but we can optimistically delete IF we trust the PIN matches logic.
-                        // However, strictly speaking, n8n should do the cleanup or we do it here on 200 OK.
+                    if (hashHex === validHash) {
+                        // Success - Unlock User
                         await db.collection('pending_users').doc(user.uid).delete();
+
+                        // Create Public Profile entry for Social Search
+                        const safeEmail = user.email.replace(/\./g, '_');
+                        await db.collection('users_public').doc(safeEmail).set({
+                            uid: user.uid,
+                            email: user.email,
+                            name: user.email.split('@')[0], // Default name
+                            level: 0,
+                            photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+                        });
+
+                        // Reload to enter Dashboard using window.location ensuring clean state
+                        window.location.reload();
                     } else {
-                        setError(data.error || 'Código incorrecto');
+                        throw new Error('PIN Incorrecto');
                     }
+
                 } catch (err) {
                     console.error("Verification Error:", err);
-                    const isCors = err.message.includes('Failed to fetch') || err.message.includes('NetworkError');
-                    if (isCors) {
-                        setError(<span>Error de CORS/Red. El webhook no devuelve cabeceras. <button onClick={() => { if (window.confirm('¿Simular validación exitosa para pruebas?')) { db.collection('pending_users').doc(user.uid).delete(); } }} className="underline font-bold hover:text-red-800">Forzar Entrada (Debug)</button></span>);
-                    } else {
-                        setError(`Error: ${err.message || 'Falló la conexión'}.`);
-                    }
+                    setError(err.message || 'Código incorrecto');
                 } finally {
                     setLoading(false);
                 }
