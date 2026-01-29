@@ -148,12 +148,12 @@
             db.enablePersistence()
                 .catch((err) => {
                     if (err.code == 'failed-precondition') {
-                        console.log('Persistence failed: Multiple tabs open');
+                        // Persistence failed: Multiple tabs open
                     } else if (err.code == 'unimplemented') {
-                        console.log('Persistence failed: Browser not supported');
+                        // Persistence failed: Browser not supported
                     }
                 });
-            console.log("Firebase & Firestore initialized with persistence");
+            // Firebase initialized
         } catch (e) {
             console.error("Error initializing Firebase:", e);
         }
@@ -223,11 +223,11 @@
 
             React.useEffect(() => {
                 if (!window.pedometer) {
-                    console.log("Pedometer plugin not found (Web Mode?)");
+                    // Pedometer not found
                     return;
                 }
 
-                console.log("Starting Pedometer Service...");
+                // Starting Pedometer
                 const successHandler = (data) => {
                     // data.numberOfSteps is total since boot
                     if (lastPedometerValRef.current === null) {
@@ -247,7 +247,7 @@
                             // Estimate: 0.04 kcal per step
                             updateDailyStat('burned', stepsToAdd * 0.04);
                             accumulatedStepsRef.current = 0;
-                            console.log(`Auto-logged ${stepsToAdd} steps`);
+                            // Auto-logged steps
                         }
                     }
                 };
@@ -2730,7 +2730,7 @@
                     const safeEmail = user.email.replace(/\./g, '_');
                     const pubDoc = await db.collection('users_public').doc(safeEmail).get();
                     if (!pubDoc.exists) {
-                        console.log("Auto-creating public profile...");
+                        // Auto-creating public profile
                         await db.collection('users_public').doc(safeEmail).set({
                             uid: user.uid,
                             email: user.email,
@@ -3616,7 +3616,6 @@
 
                 try {
                     // Client-side Secure Hash Check
-                    // Hash of "DaniCoche": 5898d25458140409c99661448880a13854eb05f0134f71a7d9715ec34b797f56
                     const msgBuffer = new TextEncoder().encode(pin);
                     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
                     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -3701,10 +3700,10 @@
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js')
                     .then((registration) => {
-                        console.log('ServiceWorker registered:', registration.scope);
+                        // ServiceWorker registered
                     })
                     .catch((error) => {
-                        console.log('ServiceWorker registration failed:', error);
+                        // ServiceWorker failed
                     });
             });
         }
@@ -3716,7 +3715,7 @@
             deferredPrompt = e;
 
             // Show custom install banner (optional - can be triggered by button)
-            console.log('PWA install available');
+            // PWA install available
         });
 
         // Function to trigger install (can be called from a button)
@@ -3725,7 +3724,7 @@
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the install prompt');
+                        // User accepted install
                     }
                     deferredPrompt = null;
                 });
