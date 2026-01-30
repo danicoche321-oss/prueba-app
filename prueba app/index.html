@@ -638,78 +638,111 @@
             const [goalWeight, setGoalWeight] = React.useState(initialGoal);
             const [showInput, setShowInput] = React.useState(false);
 
-            // Calculate linear regression from historical data
+            // Calculate linear regression from historical data (Time-based)
             const prediction = React.useMemo(() => {
                 const userLog = logs[exercise.id];
-                if (!userLog || !userLog.sets || userLog.sets.length < 3) {
+                if (!userLog || !userLog.sets || userLog.sets.length < 2) {
                     return null; // Not enough data
                 }
 
-                // Extract 1RM history (simplified: use current sets as proxy for history)
-                const dataPoints = userLog.sets
-                    .filter(s => s.weight > 0 && s.reps > 0)
-                    .map((s, index) => ({
-                        x: index, // Time proxy (set index)
-                        y: Math.round(s.weight * (1 + s.reps / 30)) // Epley 1RM
-                    }));
+                // 1. Group sets by Day and find Max 1RM per day
+                const dailyMaxes = {};
+                userLog.sets.forEach(s => {
+                    // Use set.id as timestamp (fallback to now if missing, though it shouldn't be)
+                    const date = new Date(s.id || Date.now());
+                    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
-                if (dataPoints.length < 2) return null;
+                    const epley1RM = s.weight * (1 + s.reps / 30);
 
-                // Linear regression: y = mx + b
-                const n = dataPoints.length;
-                const sumX = dataPoints.reduce((sum, p) => sum + p.x, 0);
-                const sumY = dataPoints.reduce((sum, p) => sum + p.y, 0);
-                const sumXY = dataPoints.reduce((sum, p) => sum + (p.x * p.y), 0);
-                const sumX2 = dataPoints.reduce((sum, p) => sum + (p.x * p.x), 0);
+                    if (!dailyMaxes[dateStr] || epley1RM > dailyMaxes[dateStr].rm) {
+                        dailyMaxes[dateStr] = {
+                            date: date,
+                            rm: epley1RM,
+                            timestamp: date.getTime()
+                        };
+                    }
+                });
 
-                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-                const intercept = (sumY - slope * sumX) / n;
+                const dataPoints = Object.values(dailyMaxes).sort((a, b) => a.timestamp - b.timestamp);
 
-                // Current max 1RM
-                const currentMax = exercise.max1RM || dataPoints[dataPoints.length - 1].y;
-
-                // If slope is negative or zero, can't predict
-                if (slope <= 0) {
-                    return { canPredict: false, reason: 'No hay progreso detectado' };
+                if (dataPoints.length < 2) {
+                    return { canPredict: false, reason: 'Necesitas entrenar en al menos 2 días distintos.' };
                 }
 
-                // Calculate weeks to goal (assuming 1 set = 1 week proxy)
-                const setsToGoal = (goalWeight - currentMax) / slope;
-                const weeksToGoal = Math.max(1, Math.ceil(setsToGoal));
+                // 2. Prepare Data for Regression
+                // x = days from first workout
+                // y = 1RM
+                const firstDayTimestamp = dataPoints[0].timestamp;
+                const regressionData = dataPoints.map(p => ({
+                    x: (p.timestamp - firstDayTimestamp) / (1000 * 60 * 60 * 24), // Days
+                    y: p.rm
+                }));
 
-                // Calculate R² (coefficient of determination) for confidence
+                // 3. Linear Regression
+                const n = regressionData.length;
+                const sumX = regressionData.reduce((sum, p) => sum + p.x, 0);
+                const sumY = regressionData.reduce((sum, p) => sum + p.y, 0);
+                const sumXY = regressionData.reduce((sum, p) => sum + (p.x * p.y), 0);
+                const sumX2 = regressionData.reduce((sum, p) => sum + (p.x * p.x), 0);
+
+                const denominator = (n * sumX2 - sumX * sumX);
+                if (denominator === 0) return { canPredict: false, reason: 'Datos insuficientes para calcular tendencia.' };
+
+                const slope = (n * sumXY - sumX * sumY) / denominator; // kg per day
+                const intercept = (sumY - slope * sumX) / n;
+
+                // Current max 1RM (from last logged day)
+                const currentMax = regressionData[regressionData.length - 1].y;
+
+                // If slope is negative or zero (or absurdly high like > 2kg/day which is 14kg/week), clamp or warn?
+                // For now just handle negative/zero
+                if (slope <= 0) {
+                    return { canPredict: false, reason: 'No hay progreso positivo detectado aún.' };
+                }
+
+                // 4. Prediction
+                const kgNeeded = goalWeight - currentMax;
+                if (kgNeeded <= 0) {
+                    return { canPredict: false, reason: '¡Ya has alcanzado tu meta!' };
+                }
+
+                const daysToGoal = kgNeeded / slope;
+                const weeksToGoal = Math.max(1, Math.ceil(daysToGoal / 7));
+
+                // Calculate R² for confidence
                 const yMean = sumY / n;
-                const ssTotal = dataPoints.reduce((sum, p) => sum + Math.pow(p.y - yMean, 2), 0);
-                const ssResidual = dataPoints.reduce((sum, p) => {
+                const ssTotal = regressionData.reduce((sum, p) => sum + Math.pow(p.y - yMean, 2), 0);
+                const ssResidual = regressionData.reduce((sum, p) => {
                     const predicted = slope * p.x + intercept;
                     return sum + Math.pow(p.y - predicted, 2);
                 }, 0);
-                const rSquared = 1 - (ssResidual / ssTotal);
+                const rSquared = ssTotal === 0 ? 0 : (1 - (ssResidual / ssTotal));
 
                 // Confidence level
                 let confidence = 'Baja';
                 let confidenceColor = 'text-red-500';
-                if (rSquared > 0.7) {
+                // Adjusted thresholds for real-world data noise
+                if (rSquared > 0.6) {
                     confidence = 'Alta';
                     confidenceColor = 'text-green-500';
-                } else if (rSquared > 0.4) {
+                } else if (rSquared > 0.3) {
                     confidence = 'Media';
                     confidenceColor = 'text-yellow-500';
                 }
 
                 // Projected date
                 const projectedDate = new Date();
-                projectedDate.setDate(projectedDate.getDate() + (weeksToGoal * 7));
+                projectedDate.setDate(projectedDate.getDate() + daysToGoal);
 
                 return {
                     canPredict: true,
-                    currentMax,
+                    currentMax: Math.round(currentMax),
                     goalWeight,
                     weeksToGoal,
                     projectedDate: projectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
                     confidence,
                     confidenceColor,
-                    progressPerWeek: slope.toFixed(1)
+                    progressPerWeek: (slope * 7).toFixed(1)
                 };
             }, [exercise, logs, goalWeight]);
 
