@@ -870,12 +870,51 @@
             // Calculate active volume (just for fun/display)
             const activeVolume = exercise.sets.reduce((sum, s) => sum + (s.weight * s.reps), 0);
             const totalSets = exercise.sets.length;
-            const maxWeight = Math.max(...exercise.sets.map(s => parseInt(s.weight) || 0));
 
             // Relative Strength Ratio
             const bwRatio = (userProfile && userProfile.weight && exercise.max1RM)
                 ? (exercise.max1RM / userProfile.weight).toFixed(2)
                 : null;
+
+            // --- FETCH PREVIOUS WORKOUT STATS ---
+            const previousSets = React.useMemo(() => {
+                // If no logs for this exercise, return empty
+                if (!logs || !logs[exercise.id] || !logs[exercise.id].sets) return [];
+
+                // Flat array of all sets in history
+                // We need to group them by "session" (Date) to find the *last* session.
+                // Assuming 'id' is a timestamp or we have 'createdAt'. 
+                // In GoalPrediction we saw `s.id` used as date.
+
+                const allSets = [...logs[exercise.id].sets];
+                // Group by Date (YYYY-MM-DD)
+                const sessions = {};
+
+                allSets.forEach(set => {
+                    // Fallback to Date.now() if id is missing/invalid, but it should be valid ts
+                    const date = new Date(set.id || Date.now());
+                    const dateStr = date.toDateString(); // "Fri Feb 05 2026" - grouping by day
+
+                    if (!sessions[dateStr]) sessions[dateStr] = [];
+                    sessions[dateStr].push(set);
+                });
+
+                // Sort dates descending
+                const sortedDates = Object.keys(sessions).sort((a, b) => new Date(b) - new Date(a));
+
+                // We want the most recent session that is NOT today (so we don't show current live sets as "previous")
+                // However, `logs` prop comes from Firestore. Real-time updates might put today's sets in there if we save them progressively.
+                // But usually we save on "Finish Workout".
+                // Let's safe check: ignore "today".
+                const todayStr = new Date().toDateString();
+
+                const prevDate = sortedDates.find(d => d !== todayStr);
+
+                if (!prevDate) return [];
+
+                // Return the sets for that day, sorted by ID (order of creation)
+                return sessions[prevDate].sort((a, b) => a.id - b.id);
+            }, [logs, exercise.id]);
 
             return (
                 <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden transition-all duration-300 hover:shadow-md mb-4 group">
@@ -931,62 +970,85 @@
                         <div className="px-6 pt-4 pb-2">
                             <div className="grid grid-cols-12 gap-3 mb-3 text-[10px] items-center text-stone-400 font-bold uppercase tracking-wider text-center">
                                 <span className="col-span-1">#</span>
-                                <span className="col-span-3 text-left pl-2">Tipo</span>
-                                <span className="col-span-3">Kg</span>
-                                <span className="col-span-3">Reps</span>
+                                <span className="col-span-2 text-left pl-2">Tipo</span>
+                                <span className="col-span-3 text-stone-400/80">Prev</span>
+                                <span className="col-span-2">Kg</span>
+                                <span className="col-span-2">Reps</span>
                                 <span className="col-span-2">✓</span>
                             </div>
 
                             <div className="space-y-3">
-                                {exercise.sets.map((set, index) => (
-                                    <div key={set.id} className={`grid grid-cols-12 gap-3 items-center group/set ${set.isCompleted ? 'opacity-60 saturate-50' : ''}`}>
-                                        <div className="col-span-1 flex justify-center">
-                                            <div className="w-6 h-6 rounded-full bg-white border border-stone-200 text-stone-400 flex items-center justify-center text-[10px] font-bold shadow-sm">
-                                                {index + 1}
+                                {exercise.sets.map((set, index) => {
+                                    // Match with previous set by index
+                                    // If we have 4 sets now and previous had 3, the 4th will be empty.
+                                    // If we have 3 sets now and previous had 4, we just show 3.
+                                    const prevSet = previousSets[index];
+
+                                    return (
+                                        <div key={set.id} className={`grid grid-cols-12 gap-3 items-center group/set ${set.isCompleted ? 'opacity-60 saturate-50' : ''}`}>
+                                            <div className="col-span-1 flex justify-center">
+                                                <div className="w-6 h-6 rounded-full bg-white border border-stone-200 text-stone-400 flex items-center justify-center text-[10px] font-bold shadow-sm">
+                                                    {index + 1}
+                                                </div>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <select
+                                                    value={set.type || 'working'}
+                                                    onChange={(e) => onUpdateSet(exercise.id, set.id, 'type', e.target.value)}
+                                                    className="w-full bg-white border border-stone-200 rounded-lg py-1.5 px-0.5 text-[10px] font-bold text-stone-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none text-center"
+                                                >
+                                                    <option value="warmup">🔥</option>
+                                                    <option value="approach">⚡</option>
+                                                    <option value="working">💪</option>
+                                                </select>
+                                            </div>
+
+                                            {/* PREVIOUS STATS COLUMN */}
+                                            <div className="col-span-3 flex items-center justify-center">
+                                                {prevSet ? (
+                                                    <div className="flex items-center gap-0.5">
+                                                        <span className="text-xs font-black text-stone-600 dark:text-stone-300">{prevSet.weight}</span>
+                                                        <span className="text-[9px] text-stone-400 dark:text-stone-500 font-medium translate-y-0.5">kg</span>
+                                                        <span className="text-stone-300 dark:text-stone-600 mx-1">•</span>
+                                                        <span className="text-xs font-bold text-stone-500 dark:text-stone-400">{prevSet.reps}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-stone-200 dark:text-stone-700 text-lg font-light">-</span>
+                                                )}
+                                            </div>
+
+                                            <div className="col-span-2 relative">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="600"
+                                                    step="0.5"
+                                                    value={set.weight}
+                                                    onChange={(e) => onUpdateSet(exercise.id, set.id, 'weight', e.target.value)}
+                                                    className="w-full text-center bg-white border border-stone-200 rounded-xl py-2 text-sm font-bold text-stone-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm group-hover/set:border-blue-200"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    value={set.reps}
+                                                    onChange={(e) => onUpdateSet(exercise.id, set.id, 'reps', e.target.value)}
+                                                    className="w-full text-center bg-white border border-stone-200 rounded-xl py-2 text-sm font-bold text-stone-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm group-hover/set:border-blue-200"
+                                                />
+                                            </div>
+                                            <div className="col-span-2 flex justify-center">
+                                                <button
+                                                    onClick={() => onUpdateSet(exercise.id, set.id, 'isCompleted', !set.isCompleted)}
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${set.isCompleted ? 'bg-green-500 text-white shadow-lg shadow-green-200 rotate-0' : 'bg-stone-100 text-stone-300 hover:bg-stone-200 hover:text-stone-400'}`}
+                                                >
+                                                    <Icon name="check" className={`w-5 h-5 stroke-[3px] transition-transform ${set.isCompleted ? 'scale-110' : 'scale-100'}`} />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="col-span-3">
-                                            <select
-                                                value={set.type || 'working'}
-                                                onChange={(e) => onUpdateSet(exercise.id, set.id, 'type', e.target.value)}
-                                                className="w-full bg-white border border-stone-200 rounded-lg py-1.5 px-2 text-[10px] font-bold text-stone-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none"
-                                            >
-                                                <option value="warmup">🔥 Cal</option>
-                                                <option value="approach">⚡ Apr</option>
-                                                <option value="working">💪 Efe</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-span-3 relative">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="600"
-                                                step="0.5"
-                                                value={set.weight}
-                                                onChange={(e) => onUpdateSet(exercise.id, set.id, 'weight', e.target.value)}
-                                                className="w-full text-center bg-white border border-stone-200 rounded-xl py-2 text-sm font-bold text-stone-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm group-hover/set:border-blue-200"
-                                            />
-                                        </div>
-                                        <div className="col-span-3">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                value={set.reps}
-                                                onChange={(e) => onUpdateSet(exercise.id, set.id, 'reps', e.target.value)}
-                                                className="w-full text-center bg-white border border-stone-200 rounded-xl py-2 text-sm font-bold text-stone-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm group-hover/set:border-blue-200"
-                                            />
-                                        </div>
-                                        <div className="col-span-2 flex justify-center">
-                                            <button
-                                                onClick={() => onUpdateSet(exercise.id, set.id, 'isCompleted', !set.isCompleted)}
-                                                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${set.isCompleted ? 'bg-green-500 text-white shadow-lg shadow-green-200 rotate-0' : 'bg-stone-100 text-stone-300 hover:bg-stone-200 hover:text-stone-400'}`}
-                                            >
-                                                <Icon name="check" className={`w-5 h-5 stroke-[3px] transition-transform ${set.isCompleted ? 'scale-110' : 'scale-100'}`} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
 
                             <div className="mt-6 flex gap-3">
@@ -2890,8 +2952,19 @@
                     if (grouped[ex.routine]) {
                         // Merge exercise definition with user logs
                         const userLog = logs[ex.id] || { sets: [] };
+
+                        // DAILY RESET LOGIC: Check if log is from today
+                        let isStale = true;
+                        if (userLog.lastUpdated) {
+                            const lastDate = userLog.lastUpdated.toDate ? userLog.lastUpdated.toDate() : new Date(userLog.lastUpdated);
+                            const today = new Date();
+                            isStale = lastDate.getDate() !== today.getDate() ||
+                                lastDate.getMonth() !== today.getMonth() ||
+                                lastDate.getFullYear() !== today.getFullYear();
+                        }
+
                         // If no sets logged, provide default empty sets based on exercise default
-                        const sets = userLog.sets.length > 0
+                        let sets = userLog.sets && userLog.sets.length > 0
                             ? userLog.sets
                             : Array.from({ length: ex.defaultSets || 3 }, (_, i) => ({
                                 id: Date.now() + i,
@@ -2900,7 +2973,9 @@
                                 isCompleted: false
                             }));
 
-
+                        if (isStale && userLog.sets && userLog.sets.length > 0) {
+                            sets = sets.map(s => ({ ...s, isCompleted: false }));
+                        }
 
                         // Calculate Best 1RM for this exercise based on logs
                         const max1RM = sets.reduce((max, s) => {
@@ -3101,6 +3176,17 @@
                                 // 1. ADD calories
                                 addCaloriesToday(cals);
 
+                                // Save History
+                                try {
+                                    db.collection('users').doc(user.uid).collection('history').add({
+                                        exerciseId,
+                                        exerciseName: exercise.name || 'Ejercicio',
+                                        weight: parseFloat(s.weight),
+                                        reps: parseFloat(s.reps),
+                                        completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                } catch (err) { console.error("History save error:", err); }
+
                                 // 2. Start Timer
                                 setTimer({ isActive: true, time: 90 });
 
@@ -3133,6 +3219,17 @@
                     }
                     return s;
                 });
+
+                // OPTIMISTIC UPDATE: Update local state immediately
+                setLogs(prevLogs => ({
+                    ...prevLogs,
+                    [exerciseId]: {
+                        ...(prevLogs[exerciseId] || {}),
+                        sets: newSets,
+                        // We don't update lastUpdated here to avoid jumpiness/mismatch, letting DB handle it
+                    }
+                }));
+
                 saveLog(exerciseId, newSets);
             };
 
@@ -3143,7 +3240,18 @@
 
                 const lastSet = exercise.sets[exercise.sets.length - 1] || { weight: 0, reps: 0 };
                 const newSet = { id: Date.now(), weight: lastSet.weight, reps: lastSet.reps, isCompleted: false };
-                saveLog(exerciseId, [...exercise.sets, newSet]);
+                const newSets = [...exercise.sets, newSet];
+
+                // OPTIMISTIC UPDATE
+                setLogs(prevLogs => ({
+                    ...prevLogs,
+                    [exerciseId]: {
+                        ...(prevLogs[exerciseId] || {}),
+                        sets: newSets
+                    }
+                }));
+
+                saveLog(exerciseId, newSets);
             };
 
             const handleRemoveSet = (exerciseId) => {
@@ -3152,6 +3260,16 @@
                 if (!exercise) return;
 
                 const newSets = exercise.sets.slice(0, -1);
+
+                // OPTIMISTIC UPDATE
+                setLogs(prevLogs => ({
+                    ...prevLogs,
+                    [exerciseId]: {
+                        ...(prevLogs[exerciseId] || {}),
+                        sets: newSets
+                    }
+                }));
+
                 saveLog(exerciseId, newSets);
             };
 
