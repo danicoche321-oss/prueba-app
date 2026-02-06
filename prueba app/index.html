@@ -193,7 +193,7 @@
 
             React.useEffect(() => {
                 if (!user) return;
-                const docRef = db.collection('users').doc(user.uid).collection('daily').doc(today);
+                const docRef = db.collection('users').doc(user.uid).collection('daily_logs').doc(today);
                 const unsub = docRef.onSnapshot(doc => {
                     if (doc.exists) {
                         const data = doc.data();
@@ -210,7 +210,7 @@
             }, [user]);
 
             const updateDailyStat = (field, amount) => {
-                const docRef = db.collection('users').doc(user.uid).collection('daily').doc(today);
+                const docRef = db.collection('users').doc(user.uid).collection('daily_logs').doc(today);
                 docRef.set({
                     [field]: firebase.firestore.FieldValue.increment(amount),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -236,7 +236,8 @@
                     }
 
                     const delta = data.numberOfSteps - lastPedometerValRef.current;
-                    if (delta > 0) {
+                    // Sanity check: Ignore massive jumps (e.g. boot count glitches) or negative
+                    if (delta > 0 && delta < 5000) {
                         accumulatedStepsRef.current += delta;
                         lastPedometerValRef.current = data.numberOfSteps;
 
@@ -244,11 +245,12 @@
                         if (accumulatedStepsRef.current >= 50) {
                             const stepsToAdd = accumulatedStepsRef.current;
                             updateDailyStat('steps', stepsToAdd);
-                            // Estimate: 0.04 kcal per step
                             updateDailyStat('burned', stepsToAdd * 0.04);
                             accumulatedStepsRef.current = 0;
-                            // Auto-logged steps
                         }
+                    } else if (delta < 0) {
+                        // Restart (reboot likely)
+                        lastPedometerValRef.current = data.numberOfSteps;
                     }
                 };
 
@@ -363,12 +365,11 @@
                                         </svg>
                                         {/* Center text */}
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <div className="text-3xl font-black text-blue-700 leading-none">
-                                                {steps > 1000 ? (steps / 1000).toFixed(1) : steps}
+                                            <div className="flex items-center gap-1">
+                                                <i data-lucide="footprints" className="w-4 h-4 text-blue-500"></i>
+                                                <span className="text-2xl font-black text-blue-700 leading-none">{steps.toLocaleString()}</span>
                                             </div>
-                                            <div className="text-[9px] text-blue-400 font-bold mt-0.5">
-                                                {steps > 1000 ? 'MIL' : 'pasos'}
-                                            </div>
+                                            <div className="text-[9px] text-blue-400 font-bold mt-0.5">pasos</div>
                                         </div>
                                     </div>
                                 </div>
@@ -394,10 +395,12 @@
                                 <div className="p-2 bg-orange-100/50 rounded-lg text-orange-500 group-hover/card:bg-orange-500 group-hover/card:text-white transition-colors">
                                     <i data-lucide="flame" className="w-4 h-4"></i>
                                 </div>
-                                <span className="text-xs font-bold text-orange-800 uppercase tracking-wider">Kcal Total</span>
+                                <span className="text-xs font-bold text-orange-800 uppercase tracking-wider">Quemadas</span>
                             </div>
-                            <div className="flex items-end gap-1 mb-3">
-                                <div className="text-2xl font-black text-orange-600 leading-none">{Math.round(burned)}</div>
+                            <div className="flex items-center gap-2 mb-3">
+                                <i data-lucide="flame" className="w-5 h-5 text-orange-500"></i>
+                                <span className="text-2xl font-black text-orange-600 leading-none">{Math.round(burned).toLocaleString()}</span>
+                                <span className="text-sm text-orange-400 font-medium">kcal</span>
                             </div>
                             <div className="w-full bg-orange-200/50 h-1.5 rounded-full overflow-hidden">
                                 <div className="h-full bg-orange-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min((burned / 500) * 100, 100)}%` }}></div>
@@ -409,7 +412,7 @@
             );
         });
 
-        const ProgressChart = React.memo(({ routineName, dataPoints }) => {
+        const ProgressChart = React.memo(({ routineName, dataPoints, labels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'], routines = [null, null, null, null, null, null, null] }) => {
             const chartRef = React.useRef(null);
             const chartInstanceRef = React.useRef(null);
 
@@ -424,7 +427,7 @@
                 chartInstanceRef.current = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+                        labels: labels,
                         datasets: [{
                             label: 'Volumen',
                             data: dataPoints,
@@ -473,7 +476,14 @@
                     }
                 });
                 return () => { if (chartInstanceRef.current) chartInstanceRef.current.destroy(); }
-            }, [dataPoints]);
+            }, [dataPoints, labels]);
+
+            // Routine color mapping
+            const routineColors = {
+                push: { bg: 'bg-red-500', label: 'Empuje' },
+                pull: { bg: 'bg-blue-500', label: 'Tirón' },
+                legs: { bg: 'bg-green-500', label: 'Pierna' }
+            };
 
             return (
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 mb-8">
@@ -485,11 +495,384 @@
                                 </div>
                                 {routineName}
                             </h3>
-                            <p className="text-xs text-stone-400 font-medium ml-9">Tendencia de volumen (último mes)</p>
+                            <p className="text-xs text-stone-400 font-medium ml-9">Volumen total (últimos 7 días)</p>
+                        </div>
+                        {/* Legend */}
+                        <div className="flex gap-2">
+                            <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                <span className="text-[10px] text-stone-400">Empuje</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span className="text-[10px] text-stone-400">Tirón</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span className="text-[10px] text-stone-400">Pierna</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="h-48 w-full">
+                    <div className="h-40 w-full">
                         <canvas ref={chartRef}></canvas>
+                    </div>
+                    {/* Routine indicators */}
+                    <div className="flex justify-between mt-3 px-2">
+                        {routines.map((routine, i) => (
+                            <div key={i} className="flex flex-col items-center gap-1">
+                                {routine ? (
+                                    <div
+                                        className={`w-4 h-4 rounded-full ${routineColors[routine]?.bg || 'bg-gray-300'} shadow-sm`}
+                                        title={routineColors[routine]?.label || routine}
+                                    ></div>
+                                ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-dashed border-stone-200"></div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        });
+
+        // --- HISTORY MODAL ---
+        const HistoryModal = React.memo(({ user, onClose }) => {
+            const [sessions, setSessions] = React.useState([]);
+            const [dailyStats, setDailyStats] = React.useState({});
+            const [loading, setLoading] = React.useState(true);
+
+            // Routine color mapping
+            const routineStyles = {
+                push: { bg: 'bg-red-500', light: 'bg-red-50', text: 'text-red-600', label: 'Empuje' },
+                pull: { bg: 'bg-blue-500', light: 'bg-blue-50', text: 'text-blue-600', label: 'Tirón' },
+                legs: { bg: 'bg-green-500', light: 'bg-green-50', text: 'text-green-600', label: 'Pierna' }
+            };
+
+            // Fetch last 30 days of sessions and daily stats
+            React.useEffect(() => {
+                const fetchData = async () => {
+                    try {
+                        const thirtyDaysAgo = new Date();
+                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                        thirtyDaysAgo.setHours(0, 0, 0, 0);
+                        const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+                        // 1. Fetch Sessions
+                        const sessionsSnapshot = await db.collection('users').doc(user.uid)
+                            .collection('sessions')
+                            .where('createdAt', '>=', thirtyDaysAgo)
+                            .orderBy('createdAt', 'desc')
+                            .get();
+
+                        const sessionsData = sessionsSnapshot.docs.map(doc => {
+                            const data = doc.data();
+                            return {
+                                id: doc.id,
+                                ...data,
+                                date: data.createdAt?.toDate ? data.createdAt.toDate() : (data.startTime ? new Date(data.startTime) : new Date()),
+                                startTime: data.startTime?.toDate ? data.startTime.toDate() : (data.startTime ? new Date(data.startTime) : null)
+                            };
+                        });
+
+                        // 2. Fetch Daily Stats
+                        // Fetch recent 40 days using ID ordering (IDs are YYYY-MM-DD)
+                        const dailySnapshot = await db.collection('users').doc(user.uid)
+                            .collection('daily_logs')
+                            .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
+                            .limit(40)
+                            .get();
+
+                        const dailyData = {};
+                        dailySnapshot.docs.forEach(doc => {
+                            dailyData[doc.id] = doc.data();
+                        });
+
+                        setSessions(sessionsData);
+                        setDailyStats(dailyData);
+                    } catch (error) {
+                        console.error("Error fetching history:", error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
+                fetchData();
+            }, [user.uid]);
+
+            // Generate calendar days (last 30 days)
+            const calendarDays = React.useMemo(() => {
+                const days = [];
+                const today = new Date();
+                for (let i = 29; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(today.getDate() - i);
+                    const dayKey = d.toISOString().split('T')[0];
+                    const session = sessions.find(s => s.date.toISOString().split('T')[0] === dayKey);
+                    const daily = dailyStats[dayKey];
+
+                    days.push({
+                        date: d,
+                        dayKey,
+                        day: d.getDate(),
+                        isToday: i === 0,
+                        session,
+                        daily
+                    });
+                }
+                return days;
+            }, [sessions, dailyStats]);
+
+            // Calculate stats
+            const stats = React.useMemo(() => {
+                const totalSessions = sessions.length;
+                const totalVolume = sessions.reduce((sum, s) => sum + (s.totalVolume || 0), 0);
+                const totalMinutes = sessions.reduce((sum, s) => sum + Math.floor((s.durationSeconds || 0) / 60), 0);
+                return { totalSessions, totalVolume, totalMinutes };
+            }, [sessions]);
+
+            const formatDuration = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                return `${mins} min`;
+            };
+
+            // State for selected day detail view
+            const [selectedDayData, setSelectedDayData] = React.useState(null);
+
+            const handleDayClick = (dayData, e) => {
+                if (e && e.stopPropagation) e.stopPropagation();
+                setSelectedDayData(dayData);
+            };
+
+            return (
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="bg-white rounded-3xl max-w-lg mx-auto shadow-2xl animate-scale-in min-h-[500px] flex flex-col">
+
+                        {/* Detail View Overlay */}
+                        {selectedDayData ? (
+                            <div className="flex flex-col h-full animate-fade-in">
+                                <div className="p-6 border-b border-stone-100 flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                                            <Icon name="calendar" className="w-5 h-5 text-primary-500" />
+                                            {selectedDayData.date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                                        </h2>
+                                        <p className="text-xs text-stone-400">Detalles del día</p>
+                                    </div>
+                                    <button onClick={() => setSelectedDayData(null)} className="p-2 bg-stone-100 hover:bg-stone-200 rounded-full transition-colors">
+                                        <Icon name="arrow-left" className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+                                    {/* Stats Grid */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-blue-50 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                                                <Icon name="footprints" className="w-6 h-6 text-blue-600" />
+                                            </div>
+                                            <div className="text-2xl font-black text-blue-900">
+                                                {selectedDayData.daily?.steps || 0}
+                                            </div>
+                                            <div className="text-xs font-medium text-blue-600">Pasos</div>
+                                        </div>
+                                        <div className="bg-orange-50 p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+                                            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mb-2">
+                                                <Icon name="flame" className="w-6 h-6 text-orange-600" />
+                                            </div>
+                                            <div className="text-2xl font-black text-orange-900">
+                                                {Math.round(selectedDayData.daily?.burned || 0)}
+                                            </div>
+                                            <div className="text-xs font-medium text-orange-600">Kcal Quemadas</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Workouts Section */}
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                            <Icon name="dumbbell" className="w-4 h-4 text-gray-500" />
+                                            Entrenamientos
+                                        </h3>
+                                        {selectedDayData.session ? (
+                                            <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-1 ${(routineStyles[selectedDayData.session.routine]?.bg || 'bg-gray-500').replace('bg-', 'text-')} bg-white`}>
+                                                            {routineStyles[selectedDayData.session.routine]?.label || selectedDayData.session.routine}
+                                                        </span>
+                                                        <div className="text-sm text-stone-500">
+                                                            {formatDuration(selectedDayData.session.durationSeconds || 0)} • {selectedDayData.session.startTime ? selectedDayData.session.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-lg font-black text-gray-900">{Math.round(selectedDayData.session.totalVolume || 0)} <span className="text-xs font-normal text-stone-500">kg</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+                                                <span className="text-sm text-stone-400">No hubo entrenamiento este día</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Header */}
+                                <div className="p-6 border-b border-stone-100 flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                                            <Icon name="calendar" className="w-5 h-5 text-primary-500" />
+                                            Historial
+                                        </h2>
+                                        <p className="text-xs text-stone-400">Últimos 30 días</p>
+                                    </div>
+                                    <button onClick={onClose} className="p-2 bg-stone-100 hover:bg-stone-200 rounded-full transition-colors">
+                                        <Icon name="x" className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                {/* Stats Summary */}
+                                <div className="p-4 grid grid-cols-3 gap-3">
+                                    <div className="bg-stone-50 rounded-2xl p-3 text-center">
+                                        <div className="text-2xl font-black text-gray-900">{stats.totalSessions}</div>
+                                        <div className="text-xs text-stone-400">Sesiones</div>
+                                    </div>
+                                    <div className="bg-stone-50 rounded-2xl p-3 text-center">
+                                        <div className="text-2xl font-black text-primary-500">{Math.round(stats.totalVolume / 1000)}k</div>
+                                        <div className="text-xs text-stone-400">kg movidos</div>
+                                    </div>
+                                    <div className="bg-stone-50 rounded-2xl p-3 text-center">
+                                        <div className="text-2xl font-black text-green-500">{stats.totalMinutes}</div>
+                                        <div className="text-xs text-stone-400">minutos</div>
+                                    </div>
+                                </div>
+
+                                {/* Legend */}
+                                <div className="px-6 pb-2 flex gap-3 justify-center">
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                        <span className="text-xs text-stone-500">Empuje</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                        <span className="text-xs text-stone-500">Tirón</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                        <span className="text-xs text-stone-500">Pierna</span>
+                                    </div>
+                                </div>
+
+                                {/* Calendar Grid */}
+                                <div className="p-4">
+                                    <div className="grid grid-cols-7 gap-1">
+                                        {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map(day => (
+                                            <div key={day} className="text-center text-xs font-medium text-stone-400 py-1">{day}</div>
+                                        ))}
+                                        {/* Offset for first week alignment */}
+                                        {Array.from({ length: calendarDays[0]?.date.getDay() || 0 }).map((_, i) => (
+                                            <div key={`empty-${i}`} className="aspect-square"></div>
+                                        ))}
+                                        {calendarDays.map((dayData) => {
+                                            const { dayKey, day, isToday, session, daily } = dayData;
+                                            return (
+                                                <button
+                                                    key={dayKey}
+                                                    type="button"
+                                                    onClick={(e) => handleDayClick(dayData, e)}
+                                                    className={`rounded-xl p-1 flex flex-col items-center justify-between min-h-[75px] text-xs relative cursor-pointer hover:brightness-95 transition-all w-full text-left pointer-events-auto z-10
+                                                    ${isToday ? 'ring-2 ring-primary-500' : ''}
+                                                    ${session ? routineStyles[session.routine]?.light || 'bg-gray-100 dark:bg-gray-800' : 'bg-stone-50 dark:bg-stone-900'}
+                                                `}
+                                                >
+                                                    <span className={`font-bold text-[10px] self-start ml-1 ${session ? routineStyles[session.routine]?.text || 'text-gray-600 dark:text-gray-300' : 'text-stone-400 dark:text-stone-500'}`}>
+                                                        {day}
+                                                    </span>
+
+                                                    {/* Workout Stats */}
+                                                    {session ? (
+                                                        <div className="flex flex-col items-center gap-0.5 w-full">
+                                                            <div className="flex items-center gap-1">
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${routineStyles[session.routine]?.bg || 'bg-gray-400'}`}></div>
+                                                                <span className="text-[9px] font-bold text-gray-700 dark:text-gray-200">
+                                                                    {session.totalVolume > 0
+                                                                        ? (session.totalVolume >= 1000
+                                                                            ? `${Math.round(session.totalVolume / 1000)}k`
+                                                                            : `${Math.round(session.totalVolume)}`)
+                                                                        : '✓'}
+                                                                </span>
+                                                            </div>
+                                                            {(session.durationSeconds || 0) > 0 && (
+                                                                <span className="text-[8px] text-stone-500 dark:text-stone-400">{Math.floor(session.durationSeconds / 60)}m</span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        !daily && (
+                                                            <div className="w-1.5 h-1.5 rounded-full border border-dashed border-stone-300 dark:border-stone-700"></div>
+                                                        )
+                                                    )}
+
+                                                    {/* Daily Activity (Steps/Cals) */}
+                                                    {daily && (daily.steps > 0 || daily.burned > 0) && (
+                                                        <div className="flex flex-col items-center w-full gap-0.5 mt-1 pb-1">
+                                                            {daily.steps > 0 && (
+                                                                <div className="flex items-center gap-0.5 bg-white/90 px-1 rounded-sm shadow-sm" title={`${daily.steps} pasos`}>
+                                                                    <Icon name="footprints" className="w-2 h-2 text-blue-600" />
+                                                                    <span className="text-[9px] font-bold text-blue-800 leading-none">
+                                                                        {daily.steps >= 10000 ? `${(daily.steps / 1000).toFixed(1)}k` : daily.steps}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {daily.burned > 0 && (
+                                                                <div className="flex items-center gap-0.5 bg-white/90 px-1 rounded-sm shadow-sm" title={`${Math.round(daily.burned)} kcal`}>
+                                                                    <Icon name="flame" className="w-2 h-2 text-orange-600" />
+                                                                    <span className="text-[9px] font-bold text-orange-800 leading-none">{Math.round(daily.burned)}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Session List */}
+                                <div className="p-4 border-t border-stone-100 max-h-64 overflow-y-auto">
+                                    <h3 className="font-bold text-gray-800 mb-3">Últimas sesiones</h3>
+                                    {loading ? (
+                                        <div className="text-center py-8 text-stone-400">Cargando...</div>
+                                    ) : sessions.length === 0 ? (
+                                        <div className="text-center py-8 text-stone-400">No hay sesiones registradas</div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {sessions.slice(0, 10).map(session => (
+                                                <div key={session.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${routineStyles[session.routine]?.bg || 'bg-gray-300'}`}>
+                                                            <Icon name="dumbbell" className="w-5 h-5 text-white" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-semibold text-sm text-gray-800">
+                                                                {routineStyles[session.routine]?.label || session.routine || 'Entrenamiento'}
+                                                            </div>
+                                                            <div className="text-xs text-stone-400">
+                                                                {session.date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="font-bold text-sm text-gray-800">{Math.round(session.totalVolume || 0)} kg</div>
+                                                        <div className="text-xs text-stone-400">{formatDuration(session.durationSeconds || 0)}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             );
@@ -549,6 +932,74 @@
                             ></div>
                         </div>
                     )}
+                </div>
+            );
+        };
+
+        // Session Banner - Shows workout timer and total volume
+        const SessionBanner = ({ isActive, startTime, totalVolume, onStop }) => {
+            const [elapsed, setElapsed] = React.useState(0);
+
+            React.useEffect(() => {
+                if (!isActive || !startTime) {
+                    setElapsed(0);
+                    return;
+                }
+
+                const updateElapsed = () => {
+                    const now = Date.now();
+                    setElapsed(Math.floor((now - startTime) / 1000));
+                };
+
+                updateElapsed();
+                const interval = setInterval(updateElapsed, 1000);
+                return () => clearInterval(interval);
+            }, [isActive, startTime]);
+
+            if (!isActive) return null;
+
+            const formatTime = (seconds) => {
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = seconds % 60;
+                if (h > 0) {
+                    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                }
+                return `${m}:${s.toString().padStart(2, '0')}`;
+            };
+
+            const handleStop = () => {
+                if (window.confirm('¿Terminar entrenamiento?')) {
+                    onStop(elapsed, totalVolume);
+                }
+            };
+
+            return (
+                <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg animate-slide-down">
+                    <div className="flex items-center justify-between px-4 py-3">
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                                <span className="text-xs font-bold uppercase tracking-wider opacity-90">Entrenando</span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
+                                <Icon name="clock" className="w-4 h-4" />
+                                <span className="font-mono font-bold text-lg">{formatTime(elapsed)}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="text-right">
+                                <div className="text-[10px] uppercase opacity-75">Volumen</div>
+                                <div className="font-black text-lg">{totalVolume.toLocaleString()} kg</div>
+                            </div>
+                            <button
+                                onClick={handleStop}
+                                className="w-10 h-10 bg-white/20 hover:bg-red-500 rounded-full flex items-center justify-center transition-colors"
+                            >
+                                <Icon name="square" className="w-5 h-5 fill-white" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -864,8 +1315,8 @@
             );
         };
 
-        const ExerciseCard = React.memo(({ exercise, logs, userProfile, onUpdateSet, onAddSet, onRemoveSet, onOpenCalc, onOpenChart, onEdit, onDelete }) => {
-            const [isOpen, setIsOpen] = React.useState(false);
+        const ExerciseCard = React.memo(({ exercise, logs, userProfile, isHidden, onToggleHide, onUpdateSet, onAddSet, onRemoveSet, onOpenCalc, onOpenChart, onEdit, onDelete }) => {
+            const [isOpen, setIsOpen] = React.useState(false && !isHidden);
 
             // Calculate active volume (just for fun/display)
             const activeVolume = exercise.sets.reduce((sum, s) => sum + (s.weight * s.reps), 0);
@@ -917,16 +1368,27 @@
             }, [logs, exercise.id]);
 
             return (
-                <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden transition-all duration-300 hover:shadow-md mb-4 group">
+                <div className={`bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden transition-all duration-300 hover:shadow-md mb-4 group ${isHidden ? 'opacity-50 border-orange-200 bg-orange-50/30' : ''}`}>
                     {/* Header */}
-                    <div onClick={() => setIsOpen(!isOpen)} className="p-6 flex gap-4 items-center cursor-pointer hover:bg-stone-50/50 transition-colors relative">
-                        {/* Settings Button (Cog) */}
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(exercise); }}
-                            className="absolute top-2 right-2 p-2 text-stone-300 hover:text-stone-500 rounded-full hover:bg-stone-100 transition-colors z-[30]"
-                        >
-                            <Icon name="settings-2" className="w-4 h-4" />
-                        </button>
+                    <div onClick={() => !isHidden && setIsOpen(!isOpen)} className={`p-6 flex gap-4 items-center cursor-pointer hover:bg-stone-50/50 transition-colors relative ${isHidden ? 'cursor-not-allowed' : ''}`}>
+                        {/* Header Buttons */}
+                        <div className="absolute top-2 right-2 flex gap-1 z-[30]">
+                            {/* Hide Toggle */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onToggleHide && onToggleHide(); }}
+                                className={`p-2 rounded-full transition-colors ${isHidden ? 'text-orange-500 bg-orange-100 hover:bg-orange-200' : 'text-stone-300 hover:text-stone-500 hover:bg-stone-100'}`}
+                                title={isHidden ? 'Mostrar ejercicio' : 'Ocultar por hoy'}
+                            >
+                                <Icon name={isHidden ? 'eye' : 'eye-off'} className="w-4 h-4" />
+                            </button>
+                            {/* Settings Button */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(exercise); }}
+                                className="p-2 text-stone-300 hover:text-stone-500 rounded-full hover:bg-stone-100 transition-colors"
+                            >
+                                <Icon name="settings-2" className="w-4 h-4" />
+                            </button>
+                        </div>
                         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-stone-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
                             <img src={exercise.img} alt={exercise.name} className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100" />
                         </div>
@@ -2795,6 +3257,18 @@
             // Timer State
             const [timer, setTimer] = React.useState({ isActive: false, time: 90 });
 
+            // Workout Session State (auto-starts on first completed set)
+            const [workoutSession, setWorkoutSession] = React.useState({
+                isActive: false,
+                startTime: null,
+                routine: null
+            });
+
+            // Hidden Exercises State (per-day, resets tomorrow)
+            const [hiddenExercises, setHiddenExercises] = React.useState([]);
+            const [showHidden, setShowHidden] = React.useState(false);
+            const todayKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
             // Pro Tools State
             const [plateCalc, setPlateCalc] = React.useState({ isOpen: false, weight: 60 });
             const [chartModal, setChartModal] = React.useState({ isOpen: false, exerciseId: null, name: '' });
@@ -2803,6 +3277,7 @@
             const [userStats, setUserStats] = React.useState({ points: 0, level: 0, badges: [], streakDays: 0, totalWorkouts: 0, totalPRs: 0, lastWorkoutDate: null });
             const [showBadgesModal, setShowBadgesModal] = React.useState(false);
             const [pointsAnimation, setPointsAnimation] = React.useState({ show: false, amount: 0, reason: '' });
+            const [showHistoryModal, setShowHistoryModal] = React.useState(false);
 
             // --- FIRESTORE STATE ---
             const [exercises, setExercises] = React.useState([]);
@@ -2816,6 +3291,79 @@
             const [customRoutines, setCustomRoutines] = React.useState([]);
 
             const [notifications, setNotifications] = React.useState([]);
+
+            // Chart Data State (real volume history by day)
+            const [chartData, setChartData] = React.useState([0, 0, 0, 0, 0, 0, 0]);
+            const [chartLabels, setChartLabels] = React.useState(['L', 'M', 'X', 'J', 'V', 'S', 'D']);
+            const [chartRoutines, setChartRoutines] = React.useState([null, null, null, null, null, null, null]); // Routine per day
+
+            // Fetch daily volume history and routine info for chart (last 7 days)
+            React.useEffect(() => {
+                const fetchVolumeHistory = async () => {
+                    try {
+                        const sevenDaysAgo = new Date();
+                        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+                        // Fetch history for volume
+                        const historySnapshot = await db.collection('users').doc(user.uid)
+                            .collection('history')
+                            .where('completedAt', '>=', sevenDaysAgo)
+                            .orderBy('completedAt', 'asc')
+                            .get();
+
+                        // Fetch sessions for routine info
+                        const sessionsSnapshot = await db.collection('users').doc(user.uid)
+                            .collection('sessions')
+                            .where('createdAt', '>=', sevenDaysAgo)
+                            .orderBy('createdAt', 'asc')
+                            .get();
+
+                        // Group volume by day
+                        const dailyVolumes = {};
+                        historySnapshot.docs.forEach(doc => {
+                            const data = doc.data();
+                            const date = data.completedAt?.toDate ? data.completedAt.toDate() : new Date(data.completedAt);
+                            const dayKey = date.toISOString().split('T')[0];
+                            const volume = (parseFloat(data.weight) || 0) * (parseFloat(data.reps) || 0);
+                            dailyVolumes[dayKey] = (dailyVolumes[dayKey] || 0) + volume;
+                        });
+
+                        // Group routines by day (take first session of the day)
+                        const dailyRoutines = {};
+                        sessionsSnapshot.docs.forEach(doc => {
+                            const data = doc.data();
+                            const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.startTime);
+                            const dayKey = date.toISOString().split('T')[0];
+                            if (!dailyRoutines[dayKey]) {
+                                dailyRoutines[dayKey] = data.routine || null;
+                            }
+                        });
+
+                        // Generate last 7 days
+                        const days = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+                        const labels = [];
+                        const dataPoints = [];
+                        const routines = [];
+                        for (let i = 6; i >= 0; i--) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - i);
+                            const dayKey = d.toISOString().split('T')[0];
+                            labels.push(days[d.getDay()]);
+                            dataPoints.push(Math.round(dailyVolumes[dayKey] || 0));
+                            routines.push(dailyRoutines[dayKey] || null);
+                        }
+
+                        setChartLabels(labels);
+                        setChartData(dataPoints);
+                        setChartRoutines(routines);
+                    } catch (error) {
+                        console.error("Error fetching volume history:", error);
+                    }
+                };
+
+                fetchVolumeHistory();
+            }, [user.uid, activeRoutine]);
 
             // Fetch Data
             React.useEffect(() => {
@@ -2954,7 +3502,9 @@
                         const userLog = logs[ex.id] || { sets: [] };
 
                         // DAILY RESET LOGIC: Check if log is from today
-                        let isStale = true;
+                        // Default to false (not stale) - only reset if we're CERTAIN it's from a previous day
+                        // ServerTimestamp can be null/pending, so we must not assume stale
+                        let isStale = false;
                         if (userLog.lastUpdated) {
                             const lastDate = userLog.lastUpdated.toDate ? userLog.lastUpdated.toDate() : new Date(userLog.lastUpdated);
                             const today = new Date();
@@ -2995,6 +3545,55 @@
             }, [exercises, logs, customRoutines]);
 
             // --- ACTIONS ---
+
+            // Calculate total volume for current session (completed sets only)
+            const calculateSessionVolume = React.useCallback(() => {
+                const routine = routinesData[activeRoutine];
+                if (!routine) return 0;
+                return routine.exercises.reduce((total, ex) => {
+                    return total + ex.sets
+                        .filter(s => s.isCompleted)
+                        .reduce((sum, s) => sum + (parseFloat(s.weight) || 0) * (parseFloat(s.reps) || 0), 0);
+                }, 0);
+            }, [routinesData, activeRoutine]);
+
+            // End workout session and save to Firestore
+            const handleEndSession = async (elapsedSeconds, totalVolume) => {
+                if (!workoutSession.isActive) return;
+
+                const sessionData = {
+                    routine: workoutSession.routine,
+                    startTime: new Date(workoutSession.startTime).toISOString(),
+                    endTime: new Date().toISOString(),
+                    durationSeconds: elapsedSeconds,
+                    totalVolume: totalVolume,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                try {
+                    await db.collection('users').doc(user.uid).collection('sessions').add(sessionData);
+
+                    // Award points for completing session
+                    const sessionPoints = Math.min(25, Math.floor(elapsedSeconds / 60)); // 1pt per minute, max 25
+                    awardPoints(sessionPoints, '¡Sesión completada!');
+                } catch (e) {
+                    console.error("Error saving session:", e);
+                }
+
+                setWorkoutSession({ isActive: false, startTime: null, routine: null });
+            };
+
+            // Toggle exercise hidden state for today
+            const handleToggleHideExercise = (exerciseId) => {
+                setHiddenExercises(prev => {
+                    if (prev.includes(exerciseId)) {
+                        return prev.filter(id => id !== exerciseId);
+                    } else {
+                        return [...prev, exerciseId];
+                    }
+                });
+            };
+
 
             // Gamification Functions
             const awardPoints = async (amount, reason) => {
@@ -3129,7 +3728,7 @@
             const addCaloriesToday = async (calories) => {
                 const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
                 try {
-                    const docRef = db.collection('users').doc(user.uid).collection('daily').doc(today);
+                    const docRef = db.collection('users').doc(user.uid).collection('daily_logs').doc(today);
                     docRef.set({
                         burned: firebase.firestore.FieldValue.increment(calories),
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3189,6 +3788,15 @@
 
                                 // 2. Start Timer
                                 setTimer({ isActive: true, time: 90 });
+
+                                // 3. Auto-start workout session if not active
+                                if (!workoutSession.isActive) {
+                                    setWorkoutSession({
+                                        isActive: true,
+                                        startTime: Date.now(),
+                                        routine: activeRoutine
+                                    });
+                                }
 
                                 // 3. Check PR
                                 // Calculate 1RM of COMPLETED set
@@ -3381,6 +3989,14 @@
 
             return (
                 <div className="min-h-screen pb-24 bg-gray-50 font-sans">
+                    {/* Session Banner - Shows when workout is active */}
+                    <SessionBanner
+                        isActive={workoutSession.isActive}
+                        startTime={workoutSession.startTime}
+                        totalVolume={calculateSessionVolume()}
+                        onStop={handleEndSession}
+                    />
+
                     {/* Notifications Banner */}
                     <div className="fixed top-20 left-4 right-4 z-[55] space-y-2 pointer-events-none">
                         {notifications.map(notif => (
@@ -3444,6 +4060,9 @@
                                             <button onClick={() => { setShowProfileModal(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-stone-50 flex items-center gap-3">
                                                 <Icon name="user" className="w-4 h-4 text-stone-400" /> Perfil
                                             </button>
+                                            <button onClick={() => { setShowHistoryModal(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-stone-50 flex items-center gap-3">
+                                                <Icon name="calendar" className="w-4 h-4 text-stone-400" /> Historial
+                                            </button>
                                             <button onClick={() => { setShowAdminPanel(true); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-stone-50 flex items-center gap-3">
                                                 <Icon name="shield" className="w-4 h-4 text-stone-400" /> Admin
                                             </button>
@@ -3473,7 +4092,7 @@
                                     favorites={favoriteRoutines}
                                     onCreateRoutine={() => setShowCreateRoutineModal(true)}
                                 />
-                                <ProgressChart routineName={currentData.name} dataPoints={currentData.stats} />
+                                <ProgressChart routineName={currentData.name} dataPoints={chartData} labels={chartLabels} routines={chartRoutines} />
 
                                 <div className="mt-8">
                                     <div className="flex justify-between items-end mb-4">
@@ -3506,18 +4125,33 @@
                                     </div>
                                     <div className="space-y-4">
                                         {/* Search Filter */}
-                                        <div className="relative">
-                                            <Icon name="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="text"
-                                                placeholder="Buscar ejercicio..."
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none shadow-sm"
-                                            />
+                                        <div className="relative flex gap-2">
+                                            <div className="flex-1 relative">
+                                                <Icon name="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Buscar ejercicio..."
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary-100 outline-none shadow-sm"
+                                                />
+                                            </div>
+                                            {hiddenExercises.length > 0 && (
+                                                <button
+                                                    onClick={() => setShowHidden(!showHidden)}
+                                                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 ${showHidden ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}
+                                                    title={showHidden ? 'Ocultar ejercicios desactivados' : 'Mostrar ejercicios ocultos'}
+                                                >
+                                                    <Icon name={showHidden ? 'eye' : 'eye-off'} className="w-4 h-4" />
+                                                    <span className="hidden sm:inline">{hiddenExercises.length}</span>
+                                                </button>
+                                            )}
                                         </div>
 
-                                        {currentData.exercises.filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                                        {currentData.exercises
+                                            .filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                            .filter(ex => showHidden || !hiddenExercises.includes(ex.id))
+                                            .length === 0 ? (
                                             <div className="text-center py-10 text-gray-400">
                                                 <p>No hay ejercicios en esta rutina.</p>
                                                 {exercises.length === 0 && <p className="text-xs mt-2">Dale al botón "Restaurar DB" arriba a la derecha.</p>}
@@ -3526,12 +4160,15 @@
                                         ) : (
                                             currentData.exercises
                                                 .filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                .filter(ex => showHidden || !hiddenExercises.includes(ex.id))
                                                 .map(ex => (
                                                     <ExerciseCard
                                                         key={ex.id}
                                                         exercise={ex}
                                                         logs={logs}
                                                         userProfile={userProfile}
+                                                        isHidden={hiddenExercises.includes(ex.id)}
+                                                        onToggleHide={() => handleToggleHideExercise(ex.id)}
                                                         onUpdateSet={handleUpdateSet}
                                                         onAddSet={handleAddSet}
                                                         onRemoveSet={handleRemoveSet}
@@ -3645,6 +4282,10 @@
 
                     {showBadgesModal && (
                         <BadgesModal stats={userStats} onClose={() => setShowBadgesModal(false)} />
+                    )}
+
+                    {showHistoryModal && (
+                        <HistoryModal user={user} onClose={() => setShowHistoryModal(false)} />
                     )}
 
                     {showAdminPanel && (
