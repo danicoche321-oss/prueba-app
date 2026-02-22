@@ -12,15 +12,23 @@ Set-Location android
 if ($LASTEXITCODE -ne 0) { Write-Error "Fallo en gradlew assembleDebug"; exit 1 }
 Set-Location ..
 
-# 3. Move to Desktop
+# 3. Move to Desktop & Web Folder
 $source = "android/app/build/outputs/apk/debug/app-debug.apk"
-$dest = "$env:USERPROFILE/Desktop/FitnessConDios-Debug.apk"
+$desktopDest = "$env:USERPROFILE/Desktop/FitnessConDios-Debug.apk"
+$webDest = "prueba app/apk/FitnessConDios.apk"
 
 if (Test-Path $source) {
-    Copy-Item $source $dest -Force
+    # Desktop
+    Copy-Item $source $desktopDest -Force
+    # Web folder for local testing
+    if (!(Test-Path "prueba app/apk")) { New-Item -ItemType Directory -Path "prueba app/apk" }
+    Copy-Item $source $webDest -Force
+    
     Write-Host "[OK] APK generada con exito!" -ForegroundColor Green
-    Write-Host "[OK] Archivo: $dest" -ForegroundColor Green
-} else {
+    Write-Host "[OK] Escritorio: $desktopDest" -ForegroundColor Green
+    Write-Host "[OK] Web Folder: $webDest" -ForegroundColor Green
+}
+else {
     Write-Error "[ERROR] No se encontro el archivo APK generado en: $source"
     exit 1
 }
