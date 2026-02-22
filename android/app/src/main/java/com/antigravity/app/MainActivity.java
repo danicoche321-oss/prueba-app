@@ -9,11 +9,15 @@ import android.os.Build;
 
 public class MainActivity extends BridgeActivity {
 
+    private static final int PERMISSION_REQUEST_CODE = 101;
+
     @Override
     public void onStart() {
         super.onStart();
+        checkAndStartService();
+    }
 
-        // Check for permissions before starting service
+    private void checkAndStartService() {
         boolean hasActivityRecognition = ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
         boolean hasNotification = true;
@@ -31,6 +35,27 @@ public class MainActivity extends BridgeActivity {
             } else {
                 startService(serviceIntent);
             }
+        } else {
+            // Request permissions
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(new String[] {
+                        Manifest.permission.ACTIVITY_RECOGNITION,
+                        Manifest.permission.POST_NOTIFICATIONS
+                }, PERMISSION_REQUEST_CODE);
+            } else {
+                requestPermissions(new String[] {
+                        Manifest.permission.ACTIVITY_RECOGNITION
+                }, PERMISSION_REQUEST_CODE);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            // Try to start service again after user response
+            checkAndStartService();
         }
     }
 }
