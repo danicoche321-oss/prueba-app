@@ -826,17 +826,17 @@
                                                     {daily && (daily.steps > 0 || daily.burned > 0) && (
                                                         <div className="flex flex-col items-center w-full gap-0.5 mt-1 pb-1">
                                                             {daily.steps > 0 && (
-                                                                <div className="flex items-center gap-0.5 bg-white/90 px-1 rounded-sm shadow-sm" title={`${daily.steps} pasos`}>
-                                                                    <Icon name="footprints" className="w-2 h-2 text-blue-600" />
-                                                                    <span className="text-[9px] font-bold text-blue-800 leading-none">
+                                                                <div className="flex items-center gap-0.5 bg-white/90 dark:bg-stone-800/80 backdrop-blur px-1 rounded-sm shadow-sm" title={`${daily.steps} pasos`}>
+                                                                    <Icon name="footprints" className="w-2 h-2 text-blue-600 dark:text-blue-400" />
+                                                                    <span className="text-[9px] font-bold text-blue-800 dark:text-blue-200 leading-none">
                                                                         {daily.steps >= 10000 ? `${(daily.steps / 1000).toFixed(1)}k` : daily.steps}
                                                                     </span>
                                                                 </div>
                                                             )}
                                                             {daily.burned > 0 && (
-                                                                <div className="flex items-center gap-0.5 bg-white/90 px-1 rounded-sm shadow-sm" title={`${Math.round(daily.burned)} kcal`}>
-                                                                    <Icon name="flame" className="w-2 h-2 text-orange-600" />
-                                                                    <span className="text-[9px] font-bold text-orange-800 leading-none">{Math.round(daily.burned)}</span>
+                                                                <div className="flex items-center gap-0.5 bg-white/90 dark:bg-stone-800/80 backdrop-blur px-1 rounded-sm shadow-sm" title={`${Math.round(daily.burned)} kcal`}>
+                                                                    <Icon name="flame" className="w-2 h-2 text-orange-600 dark:text-orange-400" />
+                                                                    <span className="text-[9px] font-bold text-orange-800 dark:text-orange-200 leading-none">{Math.round(daily.burned)}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2216,7 +2216,7 @@
                             </div>
 
                             {img && (
-                                <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                <div className="w-full h-32 bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden flex items-center justify-center border border-stone-200 dark:border-stone-700">
                                     <img src={img} alt="Preview" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
                                 </div>
                             )}
@@ -4246,7 +4246,7 @@
                         </div>
                     )}
                     {/* Header */}
-                    <div className="bg-gradient-to-b from-white to-stone-50 p-6 pb-4 sticky top-0 z-50 border-b border-white/50 backdrop-blur-md">
+                    <div className="bg-gradient-to-b from-white to-stone-50 dark:from-stone-900 dark:to-stone-950 p-6 pb-4 sticky top-0 z-50 border-b border-white/50 dark:border-stone-800/50 backdrop-blur-md">
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-4">
                                 <div onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
@@ -4303,6 +4303,26 @@
                     <div className="p-6 space-y-2 animate-fade-in">
                         {activeTab === 'home' && (
                             <React.Fragment>
+                                {/* APK Download Shortcut (Hidden if already in app usually, but shown for now) */}
+                                <div className="mb-4">
+                                    <a
+                                        href="/apk/FitnessConDios.apk"
+                                        download="FitnessConDios.apk"
+                                        className="w-full p-4 bg-gradient-to-r from-green-500/10 to-green-600/10 dark:from-green-500/5 dark:to-green-600/5 border border-green-500/20 dark:border-green-500/10 rounded-2xl flex items-center justify-between group hover:border-green-500/40 transition-all active:scale-[0.98]"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:scale-110 transition-transform">
+                                                <Icon name="smartphone" className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] text-green-600 dark:text-green-400 font-black uppercase tracking-widest">Novedad</div>
+                                                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">Instalar App en Android</div>
+                                            </div>
+                                        </div>
+                                        <Icon name="chevron-right" className="w-5 h-5 text-green-500 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                    </a>
+                                </div>
+
                                 <CalorieTracker user={user} target={userProfile ? userProfile.tdee : 2000} />
                                 <RoutineSelector
                                     activeRoutine={activeRoutine}
