@@ -2221,6 +2221,26 @@
                                 </div>
                             )}
 
+                            {/* APK Download Link */}
+                            <div className="pt-2">
+                                <a
+                                    href="/apk/FitnessConDios.apk"
+                                    download="FitnessConDios.apk"
+                                    className="w-full py-4 bg-gradient-to-r from-stone-800 to-stone-900 text-white rounded-2xl font-black shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/10"
+                                >
+                                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                                        <Icon name="smartphone" className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-[10px] opacity-70 uppercase tracking-widest font-bold">Instalar en Android</div>
+                                        <div className="text-sm">Descargar APK más reciente</div>
+                                    </div>
+                                </a>
+                                <p className="text-[10px] text-gray-400 mt-2 text-center px-4 leading-tight italic">
+                                    * Los cambios realizados en la web se sincronizan con la APK automáticamente cada pocos minutos.
+                                </p>
+                            </div>
+
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={handleDelete}
