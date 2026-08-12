@@ -1376,6 +1376,51 @@
                 return sessions[prevDate].sort((a, b) => a.id - b.id);
             }, [logs, exercise.id]);
 
+            // Map of beautiful photos for default exercises
+            const EXERCISE_IMAGES = {
+                'Press de Banca': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press/0.jpg',
+                'Press Inclinado (Mancuernas)': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Incline_Bench_Press/0.jpg',
+                'Aperturas en Máquina': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butterfly/0.jpg',
+                'Press Militar': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg',
+                'Elevaciones Laterales': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/0.jpg',
+                'Fondos (Dips)': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/0.jpg',
+                'Press Francés': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Triceps_Press/0.jpg',
+                'Extensión Tríceps Polea': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/0.jpg',
+                'Flexiones': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg',
+                'Press Hombros Sentado': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Dumbbell_Press/0.jpg',
+                
+                'Peso Muerto': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Deadlift/0.jpg',
+                'Dominadas': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg',
+                'Jalón al Pecho': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg',
+                'Remo con Barra': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg',
+                'Remo Gironda': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg',
+                'Face Pull': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/0.jpg',
+                'Curl con Barra': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg',
+                'Curl Martillo': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/0.jpg',
+                'Curl Predicador': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/0.jpg',
+                'Shrugs (Trapecio)': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Shrug/0.jpg',
+
+                'Sentadilla': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg',
+                'Prensa 45º': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg',
+                'Peso Muerto Rumano': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/0.jpg',
+                'Zancadas (Lunges)': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lunges/0.jpg',
+                'Extensión Cuádriceps': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg',
+                'Curl Femoral Tumbado': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Curls/0.jpg',
+                'Elevación de Talones': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg',
+                'Hip Thrust': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Hip_Thrust/0.jpg',
+                'Sentadilla Goblet': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Goblet_Squat/0.jpg',
+                'Sentadilla Búlgara': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squats/0.jpg',
+                
+                // Extra match for typical custom names
+                'Press inclinado (barra)': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Barbell_Triceps_Extension/0.jpg', // approximate
+                'Press militar (máquina discos)': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Shoulder_Press/0.jpg',
+                'Triceps Polea': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/0.jpg',
+                'Press militar smith': 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Overhead_Press/0.jpg'
+            };
+
+            const displayImg = EXERCISE_IMAGES[exercise.name] || 
+                               (exercise.img && !exercise.img.includes('illustration') ? exercise.img : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop');
+
             return (
                 <div className={`exercise-card ${isHidden ? 'opacity-50' : ''}`} style={{ borderColor: isHidden ? 'rgba(249,115,22,0.3)' : undefined }}>
                     {/* Header */}
@@ -1401,8 +1446,8 @@
                                 <Icon name="settings-2" className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-stone-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
-                            <img src={exercise.img} alt={exercise.name} className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100" />
+                        <div className="w-16 h-16 bg-stone-900 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300 border" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <img src={displayImg} alt={exercise.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' }} />
                         </div>
                         <div className="flex-1">
                             <h4 className="font-bold text-gray-900 text-lg mb-1 leading-tight group-hover:text-primary-600 transition-colors">{exercise.name}</h4>
