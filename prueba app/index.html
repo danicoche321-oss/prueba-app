@@ -1444,11 +1444,11 @@
                                 <Icon name="settings-2" className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="w-16 h-16 bg-stone-900 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300 border" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <div className="w-16 h-16 bg-[var(--surface-0)] rounded-lg flex items-center justify-center overflow-hidden shrink-0">
                             <img src={displayImg} alt={exercise.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' }} />
                         </div>
                         <div className="flex-1">
-                            <h4 className="font-bold text-gray-900 text-lg mb-1 leading-tight group-hover:text-primary-600 transition-colors">{exercise.name}</h4>
+                            <h4 className="font-bold text-[var(--text-1)] text-lg mb-0.5 leading-tight">{exercise.name}</h4>
                             <div className="flex gap-2 text-xs items-center flex-wrap">
                                 <span className="text-stone-500 font-medium flex items-center gap-1">
                                     <Icon name="dumbbell" className="w-3 h-3" /> {exercise.muscle}
@@ -1483,85 +1483,72 @@
                     </div>
 
                     {/* Sets Table */}
-                    <div className={`bg-stone-50/30 border-t border-stone-100 transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[800px] opacity-100 pb-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                    <div className={`bg-[var(--surface-1)] border-t border-[var(--border-subtle)] transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[800px] opacity-100 pb-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                         <div className="px-3 pt-4 pb-2 sm:px-6">
-                            <div className="grid grid-cols-12 gap-1 sm:gap-3 mb-3 text-[10px] items-center text-stone-400 font-bold uppercase tracking-wider text-center">
-                                <span className="col-span-1">#</span>
-                                <span className="col-span-2 text-left pl-2">Tipo</span>
-                                <span className="col-span-3 text-stone-400/80">Prev</span>
-                                <span className="col-span-2">Kg</span>
-                                <span className="col-span-2">Reps</span>
-                                <span className="col-span-2">✓</span>
+                            <div className="flex items-center gap-2 mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-3)] text-center px-1">
+                                <span className="w-8 flex-shrink-0">#</span>
+                                <span className="w-20 flex-shrink-0 text-left pl-1">Tipo</span>
+                                <span className="flex-1 min-w-0">Prev</span>
+                                <span className="w-16 flex-shrink-0">Kg</span>
+                                <span className="w-16 flex-shrink-0">Reps</span>
+                                <span className="w-12 flex-shrink-0">✓</span>
                             </div>
 
                             {/* Normal sets (warmup / approach / working only) */}
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 {exercise.sets
                                     .map((set, index) => ({ set, index }))
                                     .filter(({ set }) => set.type !== 'drop')
                                     .map(({ set, index }) => {
                                         const prevSet = previousSets[index];
                                         return (
-                                            <div key={set.id} className={`grid grid-cols-12 gap-1 sm:gap-3 items-center group/set rounded-xl px-1 transition-colors ${set.isCompleted ? 'opacity-60 saturate-50' : ''}`}>
-                                                <div className="col-span-1 flex justify-center">
-                                                    <div className="w-6 h-6 rounded-full bg-white border border-stone-200 text-stone-400 flex items-center justify-center text-[10px] font-bold shadow-sm">
-                                                        {index + 1}
-                                                    </div>
+                                            <div key={set.id} className={`flex items-center gap-2 py-1 ${set.isCompleted ? 'opacity-60' : ''}`}>
+                                                <div className="w-8 flex-shrink-0 text-center text-[10px] font-bold text-[var(--text-3)] bg-[var(--surface-2)] rounded-md py-1.5">
+                                                    {index + 1}
                                                 </div>
-                                                <div className="col-span-2">
+                                                <div className="w-20 flex-shrink-0">
                                                     <select
                                                         value={set.type || 'working'}
                                                         onChange={(e) => onUpdateSet(exercise.id, set.id, 'type', e.target.value)}
-                                                        className="w-full bg-white border border-stone-200 rounded-lg py-1.5 px-0.5 text-[10px] font-bold text-stone-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none text-center"
-                                                    >
-                                                        <option value="warmup">🔥 Calentamiento</option>
-                                                        <option value="approach">⚡ Aproximación</option>
-                                                        <option value="working">💪 Principal</option>
-                                                        <option value="drop">📉 Drop Set</option>
+                                                        className="w-full hevy-input py-1.5 px-0.5 text-[10px] cursor-pointer">
+                                                        <option value="warmup">Calentam.</option>
+                                                        <option value="approach">Aproxim.</option>
+                                                        <option value="working">Normal</option>
+                                                        <option value="drop">Drop Set</option>
                                                     </select>
                                                 </div>
-
-                                                {/* PREVIOUS STATS COLUMN */}
-                                                <div className="col-span-3 flex items-center justify-center">
+                                                <div className="flex-1 flex items-center justify-center min-w-0">
                                                     {prevSet ? (
-                                                        <div className="flex items-center gap-0.5">
-                                                            <span className="text-xs font-black text-stone-600">{prevSet.weight}</span>
-                                                            <span className="text-[9px] text-stone-400 font-medium translate-y-0.5">kg</span>
-                                                            <span className="text-stone-300 mx-1">•</span>
-                                                            <span className="text-xs font-bold text-stone-500">{prevSet.reps}</span>
+                                                        <div className="text-center leading-none overflow-hidden">
+                                                            <div className="text-xs font-bold text-[var(--text-2)]">{prevSet.weight}kg</div>
+                                                            <div className="text-[9px] text-[var(--text-3)]">{prevSet.reps} reps</div>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-stone-200 text-lg font-light">-</span>
+                                                        <span className="text-[var(--text-3)] text-lg font-light">-</span>
                                                     )}
                                                 </div>
-
-                                                <div className="col-span-2 relative">
+                                                <div className="w-16 flex-shrink-0 relative">
                                                     <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="600"
-                                                        step="0.5"
+                                                        type="number" min="0" max="600" step="0.5"
                                                         value={set.weight}
                                                         onChange={(e) => onUpdateSet(exercise.id, set.id, 'weight', e.target.value)}
-                                                        className="w-full text-center bg-white border border-stone-200 rounded-xl py-2 text-base font-bold text-stone-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm group-hover/set:border-blue-200"
+                                                        className="hevy-input w-full"
                                                     />
                                                 </div>
-                                                <div className="col-span-2">
+                                                <div className="w-16 flex-shrink-0">
                                                     <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="100"
+                                                        type="number" min="0" max="100"
                                                         value={set.reps}
                                                         onChange={(e) => onUpdateSet(exercise.id, set.id, 'reps', e.target.value)}
-                                                        className="w-full text-center bg-white border border-stone-200 rounded-xl py-2 text-base font-bold text-stone-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm group-hover/set:border-blue-200"
+                                                        className="hevy-input w-full"
                                                     />
                                                 </div>
-                                                <div className="col-span-2 flex justify-center">
+                                                <div className="w-12 flex-shrink-0">
                                                     <button
                                                         onClick={() => onUpdateSet(exercise.id, set.id, 'isCompleted', !set.isCompleted)}
-                                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${set.isCompleted ? 'bg-green-500 text-white shadow-lg shadow-green-200 rotate-0' : 'bg-stone-100 text-stone-300 hover:bg-stone-200 hover:text-stone-400'}`}
+                                                        className={`hevy-check-btn ${set.isCompleted ? 'completed' : ''}`}
                                                     >
-                                                        <Icon name="check" className={`w-5 h-5 stroke-[3px] transition-transform ${set.isCompleted ? 'scale-110' : 'scale-100'}`} />
+                                                        <Icon name="check" className="w-5 h-5 stroke-[3px]" />
                                                     </button>
                                                 </div>
                                             </div>
